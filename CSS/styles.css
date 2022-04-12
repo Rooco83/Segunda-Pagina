@@ -1,0 +1,101 @@
+a {
+  color: #11999e;
+}
+
+body {
+  margin: 0%;
+  text-align: center;
+  font-family: "Roboto Slab", serif;
+}
+
+h1 {
+  font-size: 5rem;
+  font-family: "Hurricane", cursive;
+  margin: 0px auto 0px auto;
+  color: #66bfbf;
+  line-height: 2;
+  padding: 7% 0 0 0;
+}
+
+h2 {
+  font-size: 1.5rem;
+  margin-top: 0px;
+  margin-bottom: 0px;
+  font-family: "Montserrat", sans-serif;
+  color: #66bfbf;
+  font-weight: bolder;
+}
+
+h3 {
+  color: #11999e;
+}
+
+p{
+  font-weight: bold;
+  
+}
+
+#top-container {
+  background-color: #e4f9f5;
+  height: 650px;
+  width: 1280px;
+  position: relative;
+}
+
+.dis {
+  text-decoration: underline;
+}
+
+.top-cloud {
+  position: absolute;
+  left: 60%;
+  top: 5%;
+}
+
+.mountain {
+  position: absolute;
+  right: 25%;
+  top: 45%;
+}
+
+.bottom-cloud {
+  position: absolute;
+  top: 45%;
+  left: 28%;
+}
+
+.middle-container {
+  position: relative;
+  padding-top: 30px;
+}
+
+.rooco {
+  border-radius: 50%;
+  padding-bottom: 30px;
+}
+
+.Codear {
+  width: 25%;
+  float: left;
+  margin-right: 30px;
+}
+
+.Bici {
+  width: 25%;
+  float: right;
+  margin-left: 30px;
+}
+
+.skill-row{
+    width: 50%;
+    margin: 100px auto;
+    text-align: left;
+    line-height: 2;
+    
+  }
+  .habilidades{
+    padding-top: 60px;
+  }
+  .Hola{
+   font-size: 200% ;
+  }
