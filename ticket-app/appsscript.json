@@ -2,8 +2,8 @@
   "timeZone": "America/Argentina/Buenos_Aires",
   "dependencies": {},
   "webapp": {
-    "executeAs": "USER_ACCESSING",
-    "access": "ANYONE"
+    "executeAs": "USER_DEPLOYING",
+    "access": "DOMAIN"
   },
   "exceptionLogging": "STACKDRIVER",
   "runtimeVersion": "V8"

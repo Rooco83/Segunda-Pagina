@@ -2,18 +2,18 @@
  * ============================================================================
  *  APP CARGA DE TICKETS / RENDICIÓN  ·  Backend (Google Apps Script)
  * ============================================================================
- *  Modo MULTIUSUARIO: la app corre "a nombre de quien la usa". Cada persona
- *  guarda sus tickets en SU PROPIO Drive (nada queda centralizado).
+ *  Modo EQUIPO: cualquiera de @venue carga un gasto y lo asigna a un TITULAR
+ *  de tarjeta. Todo se guarda ORDENADO en una Unidad compartida:
  *
- *  La primera vez que alguien la usa, la app le crea en su Drive:
- *    - una planilla  "Rendicion Tickets"
- *    - una carpeta   "Tickets - fotos"
- *  y las reutiliza de ahí en más (recuerda sus IDs por usuario).
+ *    Unidad compartida / Rendiciones / (AAAA-MM Mes) /
+ *        - Rendicion AAAA-MM Mes   (planilla: 1 SOLAPA por titular)
+ *        - <Titular>               (carpeta con los comprobantes de ese titular)
  *
- *  Lo ÚNICO compartido es el archivo de Centros de Costos (la lista de
- *  eventos/CCO), que debe estar compartido con permiso de LECTURA para todos.
+ *  El N° de orden es propio de cada titular (cada solapa arranca en 1) y la
+ *  imagen se guarda con ese número. Cada mes se crea todo nuevo.
  *
- *  👉 Config editable abajo.  👉 La clave de Gemini va en Propiedades del script.
+ *  La app corre "a nombre del dueño" (execute as owner) → solo el dueño necesita
+ *  acceso a la Unidad compartida y al archivo de Centros de Costos.
  * ============================================================================
  */
 
@@ -21,21 +21,21 @@
 //  CONFIG
 // ─────────────────────────────────────────────────────────────────────────
 const CONFIG = {
-  // Estructura que la app crea en el Drive de CADA persona:
-  //   Rendiciones / (AAAA-MM Mes) / Rendicion AAAA-MM Mes  + las fotos del mes
-  // Cada mes se crea una carpeta y una planilla nuevas, y el N° de orden se reinicia.
-  CARPETA_RAIZ:      'Rendiciones', // carpeta madre en el Drive del usuario
-  RENDICION_NOMBRE:  'Rendicion',   // base del nombre de la planilla mensual
-  TAB_RENDICION:     'Rendicion',
+  // ID de la carpeta "Rendiciones" DENTRO de la Unidad compartida (ahí se crea todo).
+  // Se saca de la URL de la carpeta:  .../folders/ESTO_ES_EL_ID
+  ROOT_FOLDER_ID: 'PEGA_AQUI_EL_ID_DE_LA_CARPETA_RENDICIONES',
+  RENDICION_NOMBRE: 'Rendicion', // base del nombre de la planilla mensual
 
-  // Archivo COMPARTIDO de Centros de Costos (uno solo). De ahí sale el desplegable
-  // EVENTO (CCO). Debe estar compartido con LECTURA para todos los que usen la app.
+  // Titulares de tarjeta: una SOLAPA y una CARPETA de comprobantes por cada uno.
+  // Poné los nombres tal cual querés que aparezcan.
+  TITULARES: ['Titular 1', 'Titular 2', 'Titular 3'],
+
+  // Archivo de Centros de Costos (lo lee el dueño; no hace falta compartirlo).
   CCO_SOURCE_SHEET_ID: 'PEGA_AQUI_EL_ID_DEL_ARCHIVO_DE_CENTROS_DE_COSTOS',
-  CCO_SOURCE_TAB: 'CENTROS DE COSTOS', // nombre EXACTO de la pestaña con la lista (columna A)
+  CCO_SOURCE_TAB: 'CENTROS DE COSTOS',
   CCO_SOURCE_COL: 1,
-  CCO_ANIO_MINIMO: 2025, // se muestran los CCO de este año en adelante (2025, 2026, 2027, ...)
+  CCO_ANIO_MINIMO: 2025,
 
-  // Lista fija del desplegable CUENTA (va exactamente como está escrito).
   CUENTAS: [
     '512 - Ambientacion',
     '514 - Catering Eventos Venue',
@@ -58,12 +58,12 @@ const CONFIG = {
 
   MONEDA_ESPERADA: 'ARS',
   GEMINI_MODEL: 'gemini-2.5-flash',
-  GEMINI_MODEL_FALLBACK: 'gemini-2.0-flash' // si el principal está saturado, se usa este
+  GEMINI_MODEL_FALLBACK: 'gemini-2.0-flash'
 };
 
 const ENCABEZADOS = [
   'ORDEN', 'FECHA', 'EVENTO (CCO)', 'CUENTA', 'DESCRIPCION DEL GASTO', 'PROVEED', 'IMPORTE EN $',
-  'Moneda', 'Imagen', 'Cargado', 'Estado'
+  'Moneda', 'Imagen', 'Cargado', 'Cargado por', 'Estado'
 ];
 const COL_IMPORTE = 7;
 
@@ -96,10 +96,9 @@ function getOpciones() {
   try {
     ccos = leerCCOs_();
   } catch (err) {
-    // Suele pasar si la persona no tiene acceso de lectura al archivo de Centros de Costos.
-    avisoCco = 'No se pudo leer la lista de eventos (CCO). Pedí que te compartan el archivo de Centros de Costos.';
+    avisoCco = 'No se pudo leer la lista de eventos (CCO). Revisá el ID y la pestaña del archivo de Centros de Costos.';
   }
-  return { ccos: ccos, cuentas: CONFIG.CUENTAS, avisoCco: avisoCco };
+  return { ccos: ccos, cuentas: CONFIG.CUENTAS, titulares: CONFIG.TITULARES, avisoCco: avisoCco };
 }
 
 function leerCCOs_() {
@@ -113,9 +112,6 @@ function leerCCOs_() {
 
   valores.forEach(function (fila) {
     const v = String(fila[0]).trim();
-    // Debe empezar con un año de 4 dígitos + espacio + algo más (ej: "2027 06 FIFA...").
-    // Así se incluyen 2025, 2026, 2027 y todos los años futuros, y se descartan los
-    // títulos sueltos ("2025", "ENE", "FEB", ...).
     const m = v.match(/^(\d{4})\s+\S/);
     if (m && parseInt(m[1], 10) >= CONFIG.CCO_ANIO_MINIMO) {
       if (!vistos[v]) { vistos[v] = true; lista.push(v); }
@@ -127,16 +123,23 @@ function leerCCOs_() {
 
 
 // ─────────────────────────────────────────────────────────────────────────
-//  3) Procesar un ticket (en el Drive de quien usa la app)
-//     payload = { cco, cuenta, descripcion, imagenBase64, mimeType }
+//  3) Procesar un ticket
+//     payload = { titular, cco, cuenta, descripcion, imagenBase64, mimeType }
 // ─────────────────────────────────────────────────────────────────────────
 function procesarTicket(payload) {
-  const lock = LockService.getUserLock(); // candado por usuario
+  const titular = String(payload.titular || '').trim();
+  if (CONFIG.TITULARES.indexOf(titular) === -1) {
+    return { ok: false, error: 'Elegí un titular válido.' };
+  }
+
+  const lock = LockService.getScriptLock(); // un solo Drive (el del dueño): candado global
   lock.waitLock(30000);
 
   try {
-    const carpetaMes = getCarpetaMes_();       // carpeta del mes (se crea si no existe)
-    const hoja = getRendicionSheet_(carpetaMes); // planilla del mes (se crea si no existe)
+    const carpetaMes = getCarpetaMes_();                    // Rendiciones / Mes
+    const ss = getMonthSpreadsheet_(carpetaMes);            // planilla del mes
+    const hoja = getOrCreateHojaTitular_(ss, titular);      // solapa del titular
+    const carpetaTitular = getOrCreateSubcarpeta_(carpetaMes, titular); // comprobantes del titular
 
     const orden = siguienteNumeroDeOrden_(hoja);
     const ordenTxt = String(orden).padStart(4, '0');
@@ -153,16 +156,15 @@ function procesarTicket(payload) {
       estado = agregarAviso_(estado, 'moneda ' + datos.moneda);
     }
 
-    // La imagen no debe frenar la carga: si falla, igual guardamos la fila y lo avisamos.
     let linkImagen = '';
     try {
       const nombreArchivo = ordenTxt + (datos.proveedor ? ' - ' + limpiarNombre_(datos.proveedor) : ' - ticket');
-      linkImagen = guardarImagenEnDrive_(carpetaMes, payload.imagenBase64, payload.mimeType, nombreArchivo);
+      linkImagen = guardarImagenEnDrive_(carpetaTitular, payload.imagenBase64, payload.mimeType, nombreArchivo);
     } catch (err) {
       estado = agregarAviso_(estado, 'no se guardó la imagen: ' + err.message);
     }
 
-    const usuario = Session.getActiveUser().getEmail() || '';
+    const cargadoPor = Session.getActiveUser().getEmail() || '';
     hoja.appendRow([
       orden,
       datos.fecha || '',
@@ -174,6 +176,7 @@ function procesarTicket(payload) {
       datos.moneda || '',
       linkImagen,
       new Date(),
+      cargadoPor,
       estado
     ]);
 
@@ -183,15 +186,16 @@ function procesarTicket(payload) {
 
     return {
       ok: true,
+      titular: titular,
       orden: ordenTxt,
       fecha: datos.fecha,
       proveedor: datos.proveedor,
       importe: datos.importe_total,
       moneda: datos.moneda,
       estado: estado,
-      carpetaUrl: carpetaMes.getUrl(),
-      carpetaRuta: rutaCarpeta_(carpetaMes),
-      hojaUrl: hoja.getParent().getUrl()
+      carpetaUrl: carpetaTitular.getUrl(),
+      carpetaRuta: rutaCarpeta_(carpetaTitular),
+      hojaUrl: ss.getUrl()
     };
 
   } catch (err) {
@@ -203,14 +207,12 @@ function procesarTicket(payload) {
 
 
 // ─────────────────────────────────────────────────────────────────────────
-//  Estructura por mes en el Drive del usuario (se crea sola)
-//     Rendiciones / AAAA-MM Mes / Rendicion AAAA-MM Mes
+//  Estructura por mes en la Unidad compartida
 // ─────────────────────────────────────────────────────────────────────────
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
                'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
-// Etiqueta del mes actual, ej: "2026-07 Julio" (ordenable y legible).
 function etiquetaMes_() {
   const tz = Session.getScriptTimeZone() || 'America/Argentina/Buenos_Aires';
   const d = new Date();
@@ -219,51 +221,48 @@ function etiquetaMes_() {
   return anio + '-' + mm + ' ' + MESES[Number(mm) - 1];
 }
 
-// Busca una subcarpeta por nombre; si no existe, la crea.
 function getOrCreateSubcarpeta_(padre, nombre) {
   const it = padre.getFoldersByName(nombre);
   return it.hasNext() ? it.next() : padre.createFolder(nombre);
 }
 
-// Carpeta del mes actual dentro de "Rendiciones".
 function getCarpetaMes_() {
-  const raiz = getOrCreateSubcarpeta_(DriveApp.getRootFolder(), CONFIG.CARPETA_RAIZ);
-  return getOrCreateSubcarpeta_(raiz, etiquetaMes_());
+  const root = DriveApp.getFolderById(CONFIG.ROOT_FOLDER_ID);
+  return getOrCreateSubcarpeta_(root, etiquetaMes_());
 }
 
-// Planilla del mes actual, dentro de la carpeta del mes.
-function getRendicionSheet_(carpetaMes) {
+function getMonthSpreadsheet_(carpetaMes) {
   const nombre = CONFIG.RENDICION_NOMBRE + ' ' + etiquetaMes_();
   const it = carpetaMes.getFilesByName(nombre);
-  let ss;
-  if (it.hasNext()) {
-    ss = SpreadsheetApp.open(it.next());
-  } else {
-    ss = SpreadsheetApp.create(nombre);
-    DriveApp.getFileById(ss.getId()).moveTo(carpetaMes); // sacarla de la raíz y meterla al mes
-  }
-  return getOrCreateHoja_(ss);
+  if (it.hasNext()) return SpreadsheetApp.open(it.next());
+  const ss = SpreadsheetApp.create(nombre);
+  DriveApp.getFileById(ss.getId()).moveTo(carpetaMes); // llevarla a la Unidad compartida
+  return ss;
 }
 
-function getOrCreateHoja_(ss) {
-  let hoja = ss.getSheetByName(CONFIG.TAB_RENDICION);
-  if (!hoja) {
-    // Reusar la hoja por defecto (evita dejar una "Hoja 1" vacía que confunde).
-    const primera = ss.getSheets()[0];
-    if (primera && primera.getLastRow() === 0) {
-      primera.setName(CONFIG.TAB_RENDICION);
-      hoja = primera;
-    } else {
-      hoja = ss.insertSheet(CONFIG.TAB_RENDICION);
-    }
-  }
+// Solapa (pestaña) del titular, con encabezados. Borra la "Hoja 1" vacía que confunde.
+function getOrCreateHojaTitular_(ss, titular) {
+  let hoja = ss.getSheetByName(titular);
+  if (!hoja) hoja = ss.insertSheet(titular);
   if (hoja.getLastRow() === 0) {
     hoja.appendRow(ENCABEZADOS);
     hoja.getRange(1, 1, 1, ENCABEZADOS.length).setFontWeight('bold');
     hoja.setFrozenRows(1);
     hoja.getRange('G2:G').setNumberFormat('"ARS"#,##0.00');
   }
+  borrarHojaPorDefecto_(ss, titular);
   return hoja;
+}
+
+function borrarHojaPorDefecto_(ss, titular) {
+  const defaults = ['Hoja 1', 'Hoja1', 'Sheet1', 'Sheet 1'];
+  const hojas = ss.getSheets();
+  if (hojas.length <= 1) return;
+  hojas.forEach(function (s) {
+    if (s.getName() !== titular && defaults.indexOf(s.getName()) > -1 && s.getLastRow() === 0) {
+      if (ss.getSheets().length > 1) ss.deleteSheet(s);
+    }
+  });
 }
 
 
@@ -326,10 +325,8 @@ function leerTicketConGemini_(base64, mimeType) {
   };
 
   const opciones = {
-    method: 'post',
-    contentType: 'application/json',
-    payload: JSON.stringify(payload),
-    muteHttpExceptions: true
+    method: 'post', contentType: 'application/json',
+    payload: JSON.stringify(payload), muteHttpExceptions: true
   };
 
   const key = getGeminiApiKey_();
@@ -337,7 +334,6 @@ function leerTicketConGemini_(base64, mimeType) {
   const modelos = [CONFIG.GEMINI_MODEL, CONFIG.GEMINI_MODEL_FALLBACK];
   let ultimoError = 'Gemini no respondió';
 
-  // Prueba cada modelo; si está saturado (503/429/500) reintenta con espera creciente.
   for (var mi = 0; mi < modelos.length; mi++) {
     const url = base + modelos[mi] + ':generateContent?key=' + key;
     for (var intento = 0; intento < 3; intento++) {
@@ -349,10 +345,10 @@ function leerTicketConGemini_(base64, mimeType) {
       }
       ultimoError = 'Gemini (' + modelos[mi] + ') respondió ' + codigo;
       if (codigo === 503 || codigo === 429 || codigo === 500) {
-        Utilities.sleep(1200 * (intento + 1)); // 1.2s, 2.4s, 3.6s y reintenta
+        Utilities.sleep(1200 * (intento + 1));
         continue;
       }
-      break; // otro tipo de error: no reintentar con este modelo
+      break;
     }
   }
   throw new Error(ultimoError + '. Estaba saturado; probá de nuevo en unos segundos.');
@@ -363,7 +359,6 @@ function agregarAviso_(estado, aviso) {
   return estado + '; ' + aviso;
 }
 
-// Devuelve el "caminito" de la carpeta, ej: "Mi unidad ▸ Rendiciones ▸ 2026-07 Julio".
 function rutaCarpeta_(folder) {
   const partes = [folder.getName()];
   let padres = folder.getParents();

@@ -111,6 +111,9 @@
   </header>
 
   <main>
+    <label for="titular">Titular de la tarjeta</label>
+    <select id="titular"><option>Cargando…</option></select>
+
     <label for="ccoBuscar">Evento (CCO)</label>
     <div class="combo">
       <input id="ccoBuscar" placeholder="Escribí palabras clave para buscar…" autocomplete="off">
@@ -127,7 +130,7 @@
 
     <label for="foto">Foto del comprobante</label>
     <div class="foto-box">
-      <input type="file" id="foto" accept="image/*" capture="environment">
+      <input type="file" id="foto" accept="image/*">
       <div class="hint">Sacá una foto o elegí una captura de la galería.</div>
       <img id="preview" style="display:none">
     </div>
@@ -149,6 +152,9 @@
 
     function llenarOpciones(op) {
       ccosAll = op.ccos || [];
+      const titular = document.getElementById('titular');
+      titular.innerHTML = '<option value="">Elegí un titular…</option>';
+      (op.titulares || []).forEach(function (v) { titular.add(new Option(v, v)); });
       const cuenta = document.getElementById('cuenta');
       cuenta.innerHTML = '<option value="">Elegí una cuenta…</option>';
       op.cuentas.forEach(function (v) { cuenta.add(new Option(v, v)); });
@@ -240,10 +246,12 @@
     });
 
     function guardar() {
+      const titular = document.getElementById('titular').value;
       const cco = document.getElementById('cco').value;
       const cuenta = document.getElementById('cuenta').value;
       const descripcion = document.getElementById('descripcion').value;
 
+      if (!titular) { alert('Elegí el titular de la tarjeta.'); return; }
       if (!cco) { alert('Elegí un evento (CCO).'); return; }
       if (!cuenta) { alert('Elegí una cuenta.'); return; }
       if (!imagenBase64) { alert('Falta la foto del comprobante.'); return; }
@@ -256,6 +264,7 @@
         .withSuccessHandler(mostrarResultado)
         .withFailureHandler(mostrarError)
         .procesarTicket({
+          titular: titular,
           cco: cco,
           cuenta: cuenta,
           descripcion: descripcion,
@@ -273,6 +282,7 @@
       document.getElementById('resultado').innerHTML =
         '<div class="card ok">' +
           '<h3>✅ Ticket #' + r.orden + ' guardado</h3>' +
+          (r.titular ? fila('Titular', r.titular) : '') +
           fila('Proveedor', r.proveedor || '—') +
           fila('Fecha', r.fecha || '—') +
           fila('Importe', (r.importe || '—') + ' ' + (r.moneda || '')) +
