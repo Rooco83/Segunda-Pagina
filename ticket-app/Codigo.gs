@@ -31,7 +31,7 @@ const CONFIG = {
   CCO_SOURCE_SHEET_ID: 'PEGA_AQUI_EL_ID_DEL_ARCHIVO_DE_CENTROS_DE_COSTOS',
   CCO_SOURCE_TAB: 'CENTROS DE COSTOS', // nombre EXACTO de la pestaña con la lista (columna A)
   CCO_SOURCE_COL: 1,
-  CCO_ANIOS: ['2025', '2026'], // solo se muestran los CCO que empiezan con estos años
+  CCO_ANIO_MINIMO: 2025, // se muestran los CCO de este año en adelante (2025, 2026, 2027, ...)
 
   // Lista fija del desplegable CUENTA (va exactamente como está escrito).
   CUENTAS: [
@@ -105,18 +105,17 @@ function leerCCOs_() {
   if (!hoja || hoja.getLastRow() === 0) return [];
 
   const valores = hoja.getRange(1, CONFIG.CCO_SOURCE_COL, hoja.getLastRow(), 1).getValues();
-  const anios = CONFIG.CCO_ANIOS;
   const vistos = {};
   const lista = [];
 
   valores.forEach(function (fila) {
     const v = String(fila[0]).trim();
-    for (var i = 0; i < anios.length; i++) {
-      // Debe empezar con "2025 " o "2026 " (año + espacio + algo más).
-      if (v.indexOf(anios[i] + ' ') === 0 && v.length > anios[i].length + 1) {
-        if (!vistos[v]) { vistos[v] = true; lista.push(v); }
-        break;
-      }
+    // Debe empezar con un año de 4 dígitos + espacio + algo más (ej: "2027 06 FIFA...").
+    // Así se incluyen 2025, 2026, 2027 y todos los años futuros, y se descartan los
+    // títulos sueltos ("2025", "ENE", "FEB", ...).
+    const m = v.match(/^(\d{4})\s+\S/);
+    if (m && parseInt(m[1], 10) >= CONFIG.CCO_ANIO_MINIMO) {
+      if (!vistos[v]) { vistos[v] = true; lista.push(v); }
     }
   });
 
