@@ -187,7 +187,10 @@ function procesarTicket(payload) {
       proveedor: datos.proveedor,
       importe: datos.importe_total,
       moneda: datos.moneda,
-      estado: estado
+      estado: estado,
+      carpetaUrl: carpetaMes.getUrl(),
+      carpetaRuta: rutaCarpeta_(carpetaMes),
+      hojaUrl: hoja.getParent().getUrl()
     };
 
   } catch (err) {
@@ -341,6 +344,18 @@ function leerTicketConGemini_(base64, mimeType) {
 function agregarAviso_(estado, aviso) {
   if (estado === 'OK') return 'Revisar: ' + aviso;
   return estado + '; ' + aviso;
+}
+
+// Devuelve el "caminito" de la carpeta, ej: "Mi unidad ▸ Rendiciones ▸ 2026-07 Julio".
+function rutaCarpeta_(folder) {
+  const partes = [folder.getName()];
+  let padres = folder.getParents();
+  while (padres.hasNext()) {
+    const p = padres.next();
+    partes.unshift(p.getName());
+    padres = p.getParents();
+  }
+  return partes.join(' ▸ ');
 }
 
 function limpiarNombre_(texto) {

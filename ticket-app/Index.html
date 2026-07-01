@@ -236,6 +236,8 @@
           fila('Fecha', r.fecha || '—') +
           fila('Importe', (r.importe || '—') + ' ' + (r.moneda || '')) +
           (r.estado && r.estado !== 'OK' ? '<p class="hint">⚠️ ' + r.estado + '</p>' : '') +
+          (r.carpetaRuta ? '<p class="hint">📍 ' + r.carpetaRuta + '</p>' : '') +
+          (r.carpetaUrl ? '<p><a href="' + r.carpetaUrl + '" target="_blank">📁 Abrir carpeta</a> &nbsp;·&nbsp; <a href="' + r.hojaUrl + '" target="_blank">📄 Abrir planilla</a></p>' : '') +
         '</div>';
 
       // Dejamos listo para el próximo ticket (sin borrar CCO ni Tipo de cuenta).
