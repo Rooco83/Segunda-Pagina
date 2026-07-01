@@ -1,70 +1,68 @@
-# 📸 App Cargador de Tickets — Instructivo paso a paso
+# 📸 App Carga de Tickets / Rendición — Instructivo paso a paso
 
 Hola Rodrigo. Esta es tu app para cargar tickets/comprobantes desde el celular.
-Vos sacás una foto, **Gemini lee los datos** (fecha, proveedor, importe) y todo
-se guarda solo en **tu Google Sheet** y **tu carpeta de Drive**.
+Vos elegís el **Evento (CCO)** y la **Cuenta**, escribís una **descripción**, sacás
+una **foto**, y **Gemini lee** la fecha, el proveedor y el importe. Todo se guarda
+solo en tu **Planilla de Rendición** y la foto en tu **carpeta de Drive**.
 
-No necesitás saber programar. Es **copiar, pegar y hacer clics**. Seguí los pasos
-en orden. Calculá unos **20–30 minutos** la primera vez.
+No necesitás saber programar. Es **copiar, pegar y hacer clics**. Calculá unos
+**20–30 minutos** la primera vez.
 
-> **¿Qué hace la app?**
-> 1. Elegís un **CCO** (lista que sale de tu planilla).
-> 2. Elegís un **Tipo de cuenta**.
-> 3. Escribís una **descripción** corta.
-> 4. Sacás la **foto** del comprobante.
-> 5. Se agrega **1 fila** al Sheet con N° de orden, y la **foto se guarda** en Drive.
+### Cada fila queda con el formato de tu rendición:
+
+| ORDEN | FECHA | EVENTO (CCO) | CUENTA | DESCRIPCION DEL GASTO | PROVEED | IMPORTE EN $ |
+|---|---|---|---|---|---|---|
+| _auto_ | 📷 Gemini | 🔽 vos elegís | 🔽 vos elegís | ✍️ vos escribís | 📷 Gemini | 📷 Gemini |
+
+> La app agrega columnas de apoyo a la derecha (**Moneda, Imagen, Cargado, Estado**)
+> para que puedas encontrar la foto y detectar tickets que convenga revisar. Las
+> podés ocultar; no molestan al TOTAL.
 
 ---
 
 ## Antes de empezar
-
-Necesitás tu cuenta de Google (la de `@gmail.com` o la de tu trabajo). Nada más.
-Todo lo demás es gratis para empezar.
+Solo necesitás tu cuenta de Google. Todo lo demás es gratis para empezar.
 
 ---
 
-## Paso 1 · Crear la planilla (Google Sheet)
+## Paso 1 · Tener a mano tus 2 archivos
 
-1. Entrá a **[sheets.google.com](https://sheets.google.com)** y creá una planilla en blanco.
-2. Ponele un nombre, por ejemplo **"Tickets"**.
-3. Abajo a la izquierda vas a ver la pestaña "Hoja 1". Vamos a crear **2 pestañas**:
-   - Renombrá "Hoja 1" a **`Tickets`** (doble clic sobre el nombre).
-   - Hacé clic en el **+** (abajo a la izquierda) para crear otra pestaña y llamala **`CCO`**.
-4. En la pestaña **`CCO`**, pegá tu lista de CCO en la **columna A** (uno por fila).
-   - *La pestaña `Tickets` la dejás vacía: la app le pone los títulos sola la primera vez.*
+Esta app usa **dos** planillas (pueden ser las que ya tenés):
 
-> 💡 **¿Tu lista de CCO ya está en OTRA planilla?** En la celda `A1` de la pestaña
-> `CCO` podés poner esta fórmula para traerla automáticamente (cambiá el link y el rango):
-> ```
-> =IMPORTRANGE("PEGA_AQUI_EL_LINK_DE_TU_OTRA_PLANILLA"; "Hoja1!A2:A")
-> ```
-> La primera vez te va a pedir "Permitir acceso": hacé clic ahí.
+- **(A) La Planilla de Rendición** → donde se escriben los tickets.
+- **(B) El archivo de Centros de Costos** → de donde sale el desplegable de **Evento (CCO)**.
 
-5. **Copiá el ID de la planilla.** Mirá la dirección (URL) arriba en el navegador:
-   ```
-   https://docs.google.com/spreadsheets/d/ESTO_DE_ACA_ES_EL_ID/edit
-   ```
-   Guardá ese código (el `ESTO_DE_ACA_ES_EL_ID`) en un bloc de notas. Lo vas a usar.
+Para cada una, copiá su **ID** desde la URL del navegador:
+```
+https://docs.google.com/spreadsheets/d/ESTO_DE_ACA_ES_EL_ID/edit
+```
+Guardá los dos ID en un bloc de notas (los vas a pegar en el Paso 5).
+
+> 💡 No hace falta preparar columnas en la Rendición: la app crea una pestaña
+> **`Rendicion`** con los títulos la primera vez que cargás un ticket.
+
+**Del archivo de Centros de Costos, fijate el nombre EXACTO de la pestaña** donde
+está la lista (la columna con los nombres tipo `2026 01 FIJOS OFICINA`). Anotalo
+(por ejemplo `CCOs` o `CENTROS DE COSTOS`). Lo vas a necesitar.
 
 ---
 
-## Paso 2 · Crear la carpeta en Drive
+## Paso 2 · Crear la carpeta en Drive (para las fotos)
 
-1. Entrá a **[drive.google.com](https://drive.google.com)**.
-2. Botón **Nuevo → Carpeta nueva**. Llamala, por ejemplo, **"Tickets - imágenes"**.
-3. Entrá a esa carpeta y **copiá su ID** desde la URL:
+1. Entrá a **[drive.google.com](https://drive.google.com)** → **Nuevo → Carpeta nueva**.
+   Llamala, por ejemplo, **"Tickets - imágenes"**.
+2. Entrá a la carpeta y copiá su **ID** desde la URL:
    ```
    https://drive.google.com/drive/folders/ESTO_DE_ACA_ES_EL_ID
    ```
-   Guardalo también en tu bloc de notas.
 
 ---
 
 ## Paso 3 · Conseguir la clave de Gemini (gratis)
 
 1. Entrá a **[aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)**.
-2. Hacé clic en **"Create API key"** (Crear clave de API).
-3. Se genera un texto largo (empieza con `AIza...`). **Copialo** y guardalo en tu bloc.
+2. **"Create API key"** (Crear clave de API).
+3. Copiá el texto largo que empieza con `AIza...`.
    - ⚠️ **Es como una contraseña. No la compartas ni la subas a internet.**
 
 ---
@@ -72,124 +70,125 @@ Todo lo demás es gratis para empezar.
 ## Paso 4 · Crear el proyecto de Apps Script
 
 1. Entrá a **[script.google.com](https://script.google.com)** → **Proyecto nuevo**.
-2. Arriba, donde dice "Proyecto sin título", ponele un nombre: **"App Tickets"**.
-3. Vas a ver un archivo llamado `Código.gs` con algo escrito. **Borrá todo** lo que
-   tenga adentro.
-4. Abrí el archivo **`Codigo.gs`** de esta carpeta (`ticket-app/Codigo.gs`),
-   **copiá TODO** y **pegalo** en el editor.
-5. Ahora creamos la pantalla: al lado de "Archivos" hacé clic en el **+ → HTML**.
-   - Ponele de nombre exactamente **`Index`** (sin `.html`).
-   - Borrá lo que traiga, abrí **`Index.html`** de esta carpeta, copiá TODO y pegalo ahí.
-6. Guardá con el ícono del **disquete** 💾 (o `Ctrl+S`).
+2. Ponele nombre: **"App Tickets"**.
+3. En el archivo `Código.gs`, **borrá todo** lo que tenga.
+4. Abrí **`ticket-app/Codigo.gs`** de este repo, **copiá TODO** y **pegalo**.
+5. Al lado de "Archivos", **+ → HTML**. Nombralo exactamente **`Index`** (sin `.html`).
+   Borrá lo que traiga, copiá TODO de **`ticket-app/Index.html`** y pegalo ahí.
+6. Guardá con el disquete 💾 (o `Ctrl+S`).
 
 ---
 
 ## Paso 5 · Poner tus datos en el código
 
-En el archivo `Codigo.gs` (dentro del editor), arriba de todo está el bloque
-**`CONFIG`**. Reemplazá los textos entre comillas por lo tuyo:
+En `Codigo.gs`, arriba está el bloque **`CONFIG`**. Completá:
 
 ```js
-SHEET_ID:        'aquí_el_ID_de_la_planilla_del_Paso_1',
-DRIVE_FOLDER_ID: 'aquí_el_ID_de_la_carpeta_del_Paso_2',
-TIPOS_CUENTA:    ['Caja Chica'],   // poné el/los que uses
+// (A) Planilla de Rendición (donde se escriben los tickets)
+SHEET_ID: 'aquí_el_ID_de_la_rendición',
+TAB_RENDICION: 'Rendicion',            // dejá así (o poné el nombre de pestaña que prefieras)
+
+// (B) Archivo de Centros de Costos (de donde sale el desplegable Evento CCO)
+CCO_SOURCE_SHEET_ID: 'aquí_el_ID_del_archivo_de_CCO',
+CCO_SOURCE_TAB: 'CCOs',                // ⚠️ el nombre EXACTO de la pestaña (Paso 1)
+CCO_ANIOS: ['2025', '2026'],           // qué años mostrar en el desplegable
+
+// (C) Carpeta de Drive para las fotos
+DRIVE_FOLDER_ID: 'aquí_el_ID_de_la_carpeta',
 ```
 
-Los nombres `TAB_TICKETS: 'Tickets'` y `TAB_CCO: 'CCO'` dejalos igual (coinciden
-con las pestañas del Paso 1). Guardá 💾.
+La lista **`CUENTAS`** ya viene cargada con tus 17 opciones (512, 514, … 805).
+Si alguna cambia, la editás ahí. Guardá 💾.
 
 ---
 
 ## Paso 6 · Cargar la clave de Gemini (de forma segura)
 
-La clave **no va en el código** (para que no se filtre). Se guarda aparte:
-
-1. En el editor de Apps Script, a la izquierda, clic en el engranaje
-   **⚙️ Configuración del proyecto**.
-2. Bajá hasta **"Propiedades de la secuencia de comandos"** (Script properties).
-3. Clic en **"Agregar propiedad de secuencia de comandos"**.
+1. En Apps Script, engranaje **⚙️ Configuración del proyecto**.
+2. Bajá a **"Propiedades de la secuencia de comandos"** → **Agregar propiedad**.
    - **Propiedad:** `GEMINI_API_KEY`
-   - **Valor:** pegá la clave del Paso 3 (la que empieza con `AIza...`)
-4. **Guardar propiedades de la secuencia de comandos**.
+   - **Valor:** pegá la clave del Paso 3 (`AIza...`)
+3. **Guardar propiedades de la secuencia de comandos**.
 
 ---
 
 ## Paso 7 · Publicar la app (Deploy)
 
 1. Arriba a la derecha: **Implementar → Nueva implementación**.
-2. En el engranaje ⚙️ (al lado de "Tipo") elegí **"Aplicación web"**.
+2. Engranaje ⚙️ → **"Aplicación web"**.
 3. Configurá:
-   - **Descripción:** `Tickets v1`
    - **Ejecutar como:** **Yo (tu mail)**
    - **Quién tiene acceso:** **Solo yo**
-4. Clic en **Implementar**.
-5. La primera vez te va a pedir **autorizar permisos**:
-   - "Revisar permisos" → elegí tu cuenta.
-   - Si aparece "Google no verificó esta app": **Configuración avanzada →
-     Ir a App Tickets (no seguro)**. Es tu propia app, es normal.
-   - **Permitir**.
-6. Al final te da un **link** ("URL de la aplicación web"). **Copialo.**
-   👉 **Ese link ES tu app.**
+4. **Implementar**.
+5. La primera vez pide **autorizar permisos**:
+   - "Revisar permisos" → tu cuenta.
+   - Si dice "Google no verificó esta app": **Configuración avanzada → Ir a App
+     Tickets (no seguro)** → **Permitir**. (Es tu propia app, es normal.)
+6. Copiá el **link** ("URL de la aplicación web"). 👉 **Ese link ES tu app.**
 
 ---
 
 ## Paso 8 · Instalar la app en el celular
 
-1. Abrí ese link en el navegador del celular (**Chrome** en Android, **Safari** en iPhone).
-2. Para que quede como un **ícono** (como una app):
+1. Abrí el link en el navegador del celular (**Chrome** o **Safari**).
+2. Para dejarlo como ícono:
    - **Android/Chrome:** menú ⋮ → **"Agregar a la pantalla principal"**.
-   - **iPhone/Safari:** botón compartir → **"Agregar a inicio"**.
-3. ¡Listo! Ya la tenés en la pantalla del celu. Funciona por **WiFi, 4G o 5G** igual.
+   - **iPhone/Safari:** compartir → **"Agregar a inicio"**.
+3. Listo. Funciona por **WiFi, 4G o 5G** igual.
 
 ---
 
 ## ✅ Probala
 
-1. Abrí la app, elegí un **CCO** y un **Tipo de cuenta**.
-2. Escribí una descripción, sacá una **foto** de un ticket y tocá **Guardar ticket**.
-3. En unos segundos aparece la tarjeta verde con los datos que leyó Gemini.
-4. Andá a tu planilla: vas a ver la **fila nueva**. Y en la carpeta de Drive, la **foto**.
+1. Abrí la app, elegí **Evento (CCO)** y **Cuenta**.
+2. Escribí la descripción, sacá la **foto** y tocá **Guardar ticket**.
+3. En unos segundos ves la tarjeta verde con lo que leyó Gemini.
+4. En tu Rendición aparece la **fila nueva**; en Drive, la **foto** con su N° de orden.
 
 ---
 
-## Cuando quieras cambiar algo (importante)
+## Cómo funciona el desplegable de Evento (CCO)
 
-Si editás el `Codigo.gs` o el `Index.html`, para que el cambio se vea en el celular
-tenés que **volver a publicar**:
+- La app lee **en vivo** la columna A de tu archivo de Centros de Costos.
+- Muestra **solo** los que empiezan con **`2025` o `2026`** (los que pusiste en
+  `CCO_ANIOS`). Ignora los títulos sueltos como `2025`, `ENE`, `FEB`, etc.
+- Cuando actualices ese archivo, **cerrá y reabrí la app** y el desplegable ya
+  aparece actualizado. (No hay que volver a publicar nada.)
 
-> **Implementar → Administrar implementaciones → ✏️ (editar) →
+> ¿Querés sumar otro año, por ejemplo 2027? Cambiá `CCO_ANIOS: ['2025','2026','2027']`
+> y volvé a publicar (ver abajo).
+
+---
+
+## Cuando cambies el código (importante)
+
+Si editás `Codigo.gs` o `Index.html`, para verlo en el celular hay que **volver a publicar**:
+
+> **Implementar → Administrar implementaciones → ✏️ editar →
 > Versión: "Nueva versión" → Implementar.**
 
-El **link no cambia**, así que el ícono del celular sigue funcionando.
+El **link no cambia**, así que el ícono del celular sigue sirviendo.
 
----
-
-## Columnas que genera la app (pestaña `Tickets`)
-
-| N° Orden | Fecha de carga | Usuario | CCO | Tipo de cuenta | Descripción | Fecha comprobante | Proveedor / Empresa | Importe total | Moneda | Imagen | Estado |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-
-Las columnas **Fecha comprobante, Proveedor, Importe y Moneda** las completa Gemini
-mirando la foto. Si algún ticket sale con datos raros, la columna **Estado** te avisa
-para revisarlo a mano.
+> ⚠️ Solo cambiar el **contenido** de tu archivo de Centros de Costos (agregar/quitar
+> CCOs) **no** requiere volver a publicar: la app lo lee en vivo.
 
 ---
 
 ## Si algo falla
 
-- **"Falta la clave de Gemini"** → revisá el Paso 6 (el nombre debe ser exacto: `GEMINI_API_KEY`).
-- **El desplegable de CCO sale vacío** → revisá que la pestaña se llame `CCO` y que tu
-  lista esté en la **columna A**.
-- **"Gemini respondió 4xx"** → puede ser la clave mal pegada, o que el modelo cambió de
-  nombre; avisame y lo ajustamos.
+- **"Falta la clave de Gemini"** → revisá el Paso 6 (nombre exacto: `GEMINI_API_KEY`).
+- **El desplegable de Evento (CCO) sale vacío** → revisá que `CCO_SOURCE_TAB` tenga
+  el **nombre exacto** de la pestaña, y que los nombres empiecen con `2025`/`2026`.
+- **La CUENTA no es la que quiero** → editá la lista `CUENTAS` en el `CONFIG`.
+- **"Gemini respondió 4xx"** → clave mal pegada o el modelo cambió de nombre; avisame.
 - **Cualquier otra cosa:** copiame el mensaje de error y lo resolvemos juntos.
 
 ---
 
 ### ¿Qué sigue? (para más adelante)
-- Mejorar la parte estética.
+- Que la Rendición se arme por mes automáticamente.
+- Un botón para ver / corregir los últimos tickets cargados.
 - Que varias personas puedan usarla.
-- Un botón para ver los últimos tickets cargados.
-- Exportar un resumen mensual por CCO.
+- Mejorar la parte estética.
 
-Cuando quieras, seguimos por ahí. 🚀
+Cuando quieras, seguimos. 🚀

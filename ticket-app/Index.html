@@ -55,13 +55,13 @@
   <header>📸 Carga de Tickets</header>
 
   <main>
-    <label for="cco">CCO</label>
+    <label for="cco">Evento (CCO)</label>
     <select id="cco"><option>Cargando…</option></select>
 
-    <label for="tipoCuenta">Tipo de cuenta</label>
-    <select id="tipoCuenta"><option>Cargando…</option></select>
+    <label for="cuenta">Cuenta</label>
+    <select id="cuenta"><option>Cargando…</option></select>
 
-    <label for="descripcion">Descripción (breve)</label>
+    <label for="descripcion">Descripción del gasto</label>
     <textarea id="descripcion" placeholder="Qué es y de dónde viene el ticket…"></textarea>
 
     <label for="foto">Foto del comprobante</label>
@@ -86,11 +86,11 @@
 
     function llenarOpciones(op) {
       const cco = document.getElementById('cco');
-      const tc = document.getElementById('tipoCuenta');
-      cco.innerHTML = '<option value="">Elegí un CCO…</option>';
+      const cuenta = document.getElementById('cuenta');
+      cco.innerHTML = '<option value="">Elegí un evento (CCO)…</option>';
       op.ccos.forEach(function (v) { cco.add(new Option(v, v)); });
-      tc.innerHTML = '';
-      op.tiposCuenta.forEach(function (v) { tc.add(new Option(v, v)); });
+      cuenta.innerHTML = '<option value="">Elegí una cuenta…</option>';
+      op.cuentas.forEach(function (v) { cuenta.add(new Option(v, v)); });
     }
 
     // Cuando elegís una foto: la achicamos (para que suba rápido) y mostramos preview.
@@ -124,10 +124,11 @@
 
     function guardar() {
       const cco = document.getElementById('cco').value;
-      const tipoCuenta = document.getElementById('tipoCuenta').value;
+      const cuenta = document.getElementById('cuenta').value;
       const descripcion = document.getElementById('descripcion').value;
 
-      if (!cco) { alert('Elegí un CCO.'); return; }
+      if (!cco) { alert('Elegí un evento (CCO).'); return; }
+      if (!cuenta) { alert('Elegí una cuenta.'); return; }
       if (!imagenBase64) { alert('Falta la foto del comprobante.'); return; }
 
       document.getElementById('guardar').disabled = true;
@@ -139,7 +140,7 @@
         .withFailureHandler(mostrarError)
         .procesarTicket({
           cco: cco,
-          tipoCuenta: tipoCuenta,
+          cuenta: cuenta,
           descripcion: descripcion,
           imagenBase64: imagenBase64,
           mimeType: mimeType
