@@ -29,7 +29,7 @@ const CONFIG = {
   // Archivo COMPARTIDO de Centros de Costos (uno solo). De ahí sale el desplegable
   // EVENTO (CCO). Debe estar compartido con LECTURA para todos los que usen la app.
   CCO_SOURCE_SHEET_ID: 'PEGA_AQUI_EL_ID_DEL_ARCHIVO_DE_CENTROS_DE_COSTOS',
-  CCO_SOURCE_TAB: 'CENTRO DE COSTOS', // nombre EXACTO de la pestaña con la lista (columna A)
+  CCO_SOURCE_TAB: 'CENTROS DE COSTOS', // nombre EXACTO de la pestaña con la lista (columna A)
   CCO_SOURCE_COL: 1,
   CCO_ANIOS: ['2025', '2026'], // solo se muestran los CCO que empiezan con estos años
 
