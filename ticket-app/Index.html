@@ -107,6 +107,12 @@
       op.cuentas.forEach(function (v) { cuenta.add(new Option(v, v)); });
       document.getElementById('ccoBuscar').placeholder =
         'Buscar entre ' + ccosAll.length + ' eventos…';
+      if (op.avisoCco) {
+        const e = document.getElementById('ccoElegido');
+        e.textContent = '⚠️ ' + op.avisoCco;
+        e.style.color = '#dc2626';
+        e.style.display = 'block';
+      }
     }
 
     // ── Buscador de Evento (CCO) por palabras clave ─────────────────────────
