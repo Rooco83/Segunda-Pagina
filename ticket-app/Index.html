@@ -1,68 +1,113 @@
 <!DOCTYPE html>
 <!--
-  APP CARGADOR DE TICKETS · Interfaz (lo que ves en el celular)
-  Esto es HTML/CSS/JavaScript, parecido a tu página. La lógica pesada la hace
-  el archivo Codigo.gs; acá solo mostramos el formulario y mandamos los datos.
+  APP CARGA DE TICKETS · Interfaz (identidad Venue Brand Experience)
+  Colores de marca: azul #00263E · naranja #F15A24 · gris #D9D8D6 · negro #212721
+  Tipografía: Montserrat (alternativa web a Neutrif Pro).
 -->
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <base target="_top">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --navy: #00263E;
+      --orange: #F15A24;
+      --orange-dark: #d94e1c;
+      --gray: #D9D8D6;
+      --ink: #212721;
+      --bg: #eef0f2;
+      --line: #d7dbe0;
+    }
     * { box-sizing: border-box; }
     body {
-      font-family: -apple-system, Roboto, Arial, sans-serif;
-      margin: 0; background: #f2f4f7; color: #1f2933;
+      font-family: 'Montserrat', -apple-system, Roboto, Arial, sans-serif;
+      margin: 0; background: var(--bg); color: var(--ink);
     }
-    header {
-      background: #2563eb; color: #fff; padding: 16px;
-      font-size: 1.15rem; font-weight: 600; text-align: center;
+
+    /* Header con identidad de marca */
+    header { background: var(--navy); color: #fff; padding: 16px 18px; }
+    .brand { display: flex; align-items: center; gap: 12px; max-width: 520px; margin: 0 auto; }
+    .vbadge {
+      width: 40px; height: 40px; border-radius: 10px; background: var(--orange);
+      color: #fff; font-weight: 800; font-size: 1.5rem; font-style: italic;
+      display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+      box-shadow: 0 2px 6px rgba(0,0,0,.25);
     }
-    main { padding: 16px; max-width: 520px; margin: 0 auto; }
-    label { display: block; font-weight: 600; margin: 14px 0 6px; font-size: .9rem; }
+    .app-name { font-weight: 700; font-size: 1.12rem; line-height: 1.1; }
+    .app-sub { font-size: .68rem; opacity: .8; letter-spacing: .12em; text-transform: uppercase; margin-top: 2px; }
+
+    main { padding: 18px 16px 32px; max-width: 520px; margin: 0 auto; }
+    label { display: block; font-weight: 600; margin: 16px 0 6px; font-size: .9rem; color: var(--navy); }
+
     select, textarea, input {
-      width: 100%; padding: 12px; border: 1px solid #cbd2d9;
-      border-radius: 10px; font-size: 1rem; background: #fff;
+      width: 100%; padding: 13px; border: 1px solid var(--line);
+      border-radius: 12px; font-size: 1rem; background: #fff;
+      font-family: inherit; color: var(--ink); transition: border-color .15s, box-shadow .15s;
     }
-    textarea { resize: vertical; min-height: 60px; }
+    select:focus, textarea:focus, input:focus {
+      outline: none; border-color: var(--orange);
+      box-shadow: 0 0 0 3px rgba(241,90,36,.15);
+    }
+    textarea { resize: vertical; min-height: 62px; }
+
     .foto-box {
-      border: 2px dashed #9aa5b1; border-radius: 12px; padding: 20px;
+      border: 2px dashed #aeb6bf; border-radius: 14px; padding: 20px;
       text-align: center; background: #fff; margin-top: 6px;
     }
     .foto-box img { max-width: 100%; border-radius: 10px; margin-top: 10px; }
+
     .btn {
-      display: block; width: 100%; margin-top: 20px; padding: 15px;
-      background: #2563eb; color: #fff; border: none; border-radius: 12px;
-      font-size: 1.05rem; font-weight: 600;
+      display: block; width: 100%; margin-top: 24px; padding: 16px;
+      background: var(--orange); color: #fff; border: none; border-radius: 14px;
+      font-family: inherit; font-size: 1.05rem; font-weight: 700; letter-spacing: .01em;
+      box-shadow: 0 4px 14px rgba(241,90,36,.30); cursor: pointer; transition: background .15s, transform .05s;
     }
-    .btn:disabled { background: #9aa5b1; }
+    .btn:active { background: var(--orange-dark); transform: translateY(1px); }
+    .btn:disabled { background: #b8bcc0; box-shadow: none; }
+
     .hint { font-size: .8rem; color: #6b7280; margin-top: 4px; }
+
     .combo { position: relative; }
     .lista {
-      border: 1px solid #cbd2d9; border-radius: 10px; margin-top: 4px;
+      border: 1px solid var(--line); border-radius: 12px; margin-top: 4px;
       max-height: 240px; overflow-y: auto; background: #fff; display: none;
+      box-shadow: 0 6px 18px rgba(0,38,62,.10);
     }
     .lista.show { display: block; }
     .lista div { padding: 12px; border-bottom: 1px solid #eef1f4; cursor: pointer; }
     .lista div:last-child { border-bottom: none; }
-    .lista div:hover, .lista div:active { background: #eff4ff; }
-    .elegido { font-size: .85rem; color: #16a34a; margin-top: 6px; font-weight: 600; display: none; }
+    .lista div:hover, .lista div:active { background: #eaf1f6; }
+    .elegido { font-size: .85rem; color: var(--navy); margin-top: 6px; font-weight: 600; display: none; }
+
     .card {
-      background: #fff; border-radius: 12px; padding: 16px; margin-top: 18px;
-      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+      background: #fff; border-radius: 14px; padding: 18px; margin-top: 20px;
+      box-shadow: 0 2px 10px rgba(0,38,62,.10);
     }
-    .ok { border-left: 5px solid #16a34a; }
+    .ok { border-left: 5px solid #1e9e57; }
     .err { border-left: 5px solid #dc2626; }
-    .card h3 { margin: 0 0 8px; }
-    .dato { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #eef1f4; }
+    .card h3 { margin: 0 0 10px; color: var(--navy); }
+    .dato { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #eef1f4; }
     .dato span:first-child { color: #6b7280; }
-    .spinner {
-      display: none; text-align: center; margin-top: 16px; color: #2563eb; font-weight: 600;
-    }
+    .dato span:last-child { font-weight: 600; text-align: right; }
+    .card a { color: var(--orange); font-weight: 600; text-decoration: none; }
+
+    .spinner { display: none; text-align: center; margin-top: 18px; color: var(--navy); font-weight: 600; }
+    footer { text-align: center; font-size: .7rem; color: #9aa2ab; padding: 8px 0 20px; letter-spacing: .08em; text-transform: uppercase; }
   </style>
 </head>
 <body>
-  <header>📸 Carga de Tickets</header>
+  <header>
+    <div class="brand">
+      <span class="vbadge">V</span>
+      <div>
+        <div class="app-name">Carga de Tickets</div>
+        <div class="app-sub">Venue Brand Experience</div>
+      </div>
+    </div>
+  </header>
 
   <main>
     <label for="ccoBuscar">Evento (CCO)</label>
@@ -92,12 +137,13 @@
     <div id="resultado"></div>
   </main>
 
+  <footer>Venue Brand Experience</footer>
+
   <script>
     let imagenBase64 = null;
     let mimeType = null;
-    let ccosAll = [];   // lista completa de eventos (CCO) para el buscador
+    let ccosAll = [];
 
-    // Al abrir la app, pedimos las listas de los desplegables.
     google.script.run.withSuccessHandler(llenarOpciones).getOpciones();
 
     function llenarOpciones(op) {
@@ -105,8 +151,7 @@
       const cuenta = document.getElementById('cuenta');
       cuenta.innerHTML = '<option value="">Elegí una cuenta…</option>';
       op.cuentas.forEach(function (v) { cuenta.add(new Option(v, v)); });
-      document.getElementById('ccoBuscar').placeholder =
-        'Buscar entre ' + ccosAll.length + ' eventos…';
+      document.getElementById('ccoBuscar').placeholder = 'Buscar entre ' + ccosAll.length + ' eventos…';
       if (op.avisoCco) {
         const e = document.getElementById('ccoElegido');
         e.textContent = '⚠️ ' + op.avisoCco;
@@ -115,32 +160,28 @@
       }
     }
 
-    // ── Buscador de Evento (CCO) por palabras clave ─────────────────────────
     const ccoBuscar = document.getElementById('ccoBuscar');
     const ccoLista = document.getElementById('ccoLista');
 
     ccoBuscar.addEventListener('input', function () {
-      // Al escribir, se borra la selección previa hasta que elijas una opción.
       document.getElementById('cco').value = '';
       document.getElementById('ccoElegido').style.display = 'none';
       renderCco(ccoBuscar.value);
     });
     ccoBuscar.addEventListener('focus', function () { renderCco(ccoBuscar.value); });
 
-    // Cerrar la lista si tocás fuera del buscador.
     document.addEventListener('click', function (ev) {
       if (!ev.target.closest('.combo')) ccoLista.classList.remove('show');
     });
 
     function renderCco(q) {
-      // Cada palabra que escribís tiene que aparecer en el nombre (en cualquier orden).
       const tokens = q.toLowerCase().split(/\s+/).filter(Boolean);
       let res = ccosAll.filter(function (c) {
         const t = c.toLowerCase();
         return tokens.every(function (k) { return t.indexOf(k) > -1; });
       });
       const total = res.length;
-      res = res.slice(0, 50); // mostramos hasta 50 para que vaya rápido
+      res = res.slice(0, 50);
 
       ccoLista.innerHTML = '';
       if (res.length === 0) { ccoLista.classList.remove('show'); return; }
@@ -169,7 +210,6 @@
       ccoLista.classList.remove('show');
     }
 
-    // Cuando elegís una foto: la achicamos (para que suba rápido) y mostramos preview.
     document.getElementById('foto').addEventListener('change', function (e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -240,7 +280,6 @@
           (r.carpetaUrl ? '<p><a href="' + r.carpetaUrl + '" target="_blank">📁 Abrir carpeta</a> &nbsp;·&nbsp; <a href="' + r.hojaUrl + '" target="_blank">📄 Abrir planilla</a></p>' : '') +
         '</div>';
 
-      // Dejamos listo para el próximo ticket (sin borrar CCO ni Tipo de cuenta).
       document.getElementById('descripcion').value = '';
       document.getElementById('foto').value = '';
       document.getElementById('preview').style.display = 'none';
