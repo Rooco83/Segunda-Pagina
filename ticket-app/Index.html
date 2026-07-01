@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<!--
+  APP CARGADOR DE TICKETS · Interfaz (lo que ves en el celular)
+  Esto es HTML/CSS/JavaScript, parecido a tu página. La lógica pesada la hace
+  el archivo Codigo.gs; acá solo mostramos el formulario y mandamos los datos.
+-->
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, Roboto, Arial, sans-serif;
+      margin: 0; background: #f2f4f7; color: #1f2933;
+    }
+    header {
+      background: #2563eb; color: #fff; padding: 16px;
+      font-size: 1.15rem; font-weight: 600; text-align: center;
+    }
+    main { padding: 16px; max-width: 520px; margin: 0 auto; }
+    label { display: block; font-weight: 600; margin: 14px 0 6px; font-size: .9rem; }
+    select, textarea, input {
+      width: 100%; padding: 12px; border: 1px solid #cbd2d9;
+      border-radius: 10px; font-size: 1rem; background: #fff;
+    }
+    textarea { resize: vertical; min-height: 60px; }
+    .foto-box {
+      border: 2px dashed #9aa5b1; border-radius: 12px; padding: 20px;
+      text-align: center; background: #fff; margin-top: 6px;
+    }
+    .foto-box img { max-width: 100%; border-radius: 10px; margin-top: 10px; }
+    .btn {
+      display: block; width: 100%; margin-top: 20px; padding: 15px;
+      background: #2563eb; color: #fff; border: none; border-radius: 12px;
+      font-size: 1.05rem; font-weight: 600;
+    }
+    .btn:disabled { background: #9aa5b1; }
+    .hint { font-size: .8rem; color: #6b7280; margin-top: 4px; }
+    .card {
+      background: #fff; border-radius: 12px; padding: 16px; margin-top: 18px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+    .ok { border-left: 5px solid #16a34a; }
+    .err { border-left: 5px solid #dc2626; }
+    .card h3 { margin: 0 0 8px; }
+    .dato { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #eef1f4; }
+    .dato span:first-child { color: #6b7280; }
+    .spinner {
+      display: none; text-align: center; margin-top: 16px; color: #2563eb; font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <header>📸 Carga de Tickets</header>
+
+  <main>
+    <label for="cco">CCO</label>
+    <select id="cco"><option>Cargando…</option></select>
+
+    <label for="tipoCuenta">Tipo de cuenta</label>
+    <select id="tipoCuenta"><option>Cargando…</option></select>
+
+    <label for="descripcion">Descripción (breve)</label>
+    <textarea id="descripcion" placeholder="Qué es y de dónde viene el ticket…"></textarea>
+
+    <label for="foto">Foto del comprobante</label>
+    <div class="foto-box">
+      <input type="file" id="foto" accept="image/*" capture="environment">
+      <div class="hint">Sacá una foto o elegí una captura de la galería.</div>
+      <img id="preview" style="display:none">
+    </div>
+
+    <button class="btn" id="guardar" onclick="guardar()">Guardar ticket</button>
+
+    <div class="spinner" id="spinner">⏳ Leyendo el ticket con Gemini…</div>
+    <div id="resultado"></div>
+  </main>
+
+  <script>
+    let imagenBase64 = null;
+    let mimeType = null;
+
+    // Al abrir la app, pedimos las listas de los desplegables.
+    google.script.run.withSuccessHandler(llenarOpciones).getOpciones();
+
+    function llenarOpciones(op) {
+      const cco = document.getElementById('cco');
+      const tc = document.getElementById('tipoCuenta');
+      cco.innerHTML = '<option value="">Elegí un CCO…</option>';
+      op.ccos.forEach(function (v) { cco.add(new Option(v, v)); });
+      tc.innerHTML = '';
+      op.tiposCuenta.forEach(function (v) { tc.add(new Option(v, v)); });
+    }
+
+    // Cuando elegís una foto: la achicamos (para que suba rápido) y mostramos preview.
+    document.getElementById('foto').addEventListener('change', function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (ev) {
+        const img = new Image();
+        img.onload = function () {
+          const maxLado = 1600;
+          let { width, height } = img;
+          if (width > maxLado || height > maxLado) {
+            const escala = maxLado / Math.max(width, height);
+            width = Math.round(width * escala);
+            height = Math.round(height * escala);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width; canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          imagenBase64 = dataUrl.split(',')[1];
+          mimeType = 'image/jpeg';
+          const p = document.getElementById('preview');
+          p.src = dataUrl; p.style.display = 'block';
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    function guardar() {
+      const cco = document.getElementById('cco').value;
+      const tipoCuenta = document.getElementById('tipoCuenta').value;
+      const descripcion = document.getElementById('descripcion').value;
+
+      if (!cco) { alert('Elegí un CCO.'); return; }
+      if (!imagenBase64) { alert('Falta la foto del comprobante.'); return; }
+
+      document.getElementById('guardar').disabled = true;
+      document.getElementById('spinner').style.display = 'block';
+      document.getElementById('resultado').innerHTML = '';
+
+      google.script.run
+        .withSuccessHandler(mostrarResultado)
+        .withFailureHandler(mostrarError)
+        .procesarTicket({
+          cco: cco,
+          tipoCuenta: tipoCuenta,
+          descripcion: descripcion,
+          imagenBase64: imagenBase64,
+          mimeType: mimeType
+        });
+    }
+
+    function mostrarResultado(r) {
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('guardar').disabled = false;
+
+      if (!r.ok) { return mostrarError({ message: r.error }); }
+
+      document.getElementById('resultado').innerHTML =
+        '<div class="card ok">' +
+          '<h3>✅ Ticket #' + r.orden + ' guardado</h3>' +
+          fila('Proveedor', r.proveedor || '—') +
+          fila('Fecha', r.fecha || '—') +
+          fila('Importe', (r.importe || '—') + ' ' + (r.moneda || '')) +
+          (r.estado && r.estado !== 'OK' ? '<p class="hint">⚠️ ' + r.estado + '</p>' : '') +
+        '</div>';
+
+      // Dejamos listo para el próximo ticket (sin borrar CCO ni Tipo de cuenta).
+      document.getElementById('descripcion').value = '';
+      document.getElementById('foto').value = '';
+      document.getElementById('preview').style.display = 'none';
+      imagenBase64 = null;
+    }
+
+    function mostrarError(e) {
+      document.getElementById('spinner').style.display = 'none';
+      document.getElementById('guardar').disabled = false;
+      document.getElementById('resultado').innerHTML =
+        '<div class="card err"><h3>❌ Hubo un problema</h3><p>' + (e.message || e) + '</p></div>';
+    }
+
+    function fila(k, v) {
+      return '<div class="dato"><span>' + k + '</span><span>' + v + '</span></div>';
+    }
+  </script>
+</body>
+</html>
