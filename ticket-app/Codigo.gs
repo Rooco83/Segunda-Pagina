@@ -21,10 +21,12 @@
 //  CONFIG
 // ─────────────────────────────────────────────────────────────────────────
 const CONFIG = {
-  // Nombres de la planilla y la carpeta que la app crea en el Drive de CADA persona.
-  RENDICION_NOMBRE: 'Rendicion Tickets',
-  CARPETA_NOMBRE:   'Tickets - fotos',
-  TAB_RENDICION:    'Rendicion',
+  // Estructura que la app crea en el Drive de CADA persona:
+  //   Rendiciones / (AAAA-MM Mes) / Rendicion AAAA-MM Mes  + las fotos del mes
+  // Cada mes se crea una carpeta y una planilla nuevas, y el N° de orden se reinicia.
+  CARPETA_RAIZ:      'Rendiciones', // carpeta madre en el Drive del usuario
+  RENDICION_NOMBRE:  'Rendicion',   // base del nombre de la planilla mensual
+  TAB_RENDICION:     'Rendicion',
 
   // Archivo COMPARTIDO de Centros de Costos (uno solo). De ahí sale el desplegable
   // EVENTO (CCO). Debe estar compartido con LECTURA para todos los que usen la app.
@@ -132,8 +134,8 @@ function procesarTicket(payload) {
   lock.waitLock(30000);
 
   try {
-    const hoja = getRendicionSheet_();     // planilla propia del usuario (se crea si no existe)
-    const carpeta = getCarpeta_();         // carpeta propia del usuario (se crea si no existe)
+    const carpetaMes = getCarpetaMes_();       // carpeta del mes (se crea si no existe)
+    const hoja = getRendicionSheet_(carpetaMes); // planilla del mes (se crea si no existe)
 
     const orden = siguienteNumeroDeOrden_(hoja);
     const ordenTxt = String(orden).padStart(4, '0');
@@ -150,8 +152,14 @@ function procesarTicket(payload) {
       estado = agregarAviso_(estado, 'moneda ' + datos.moneda);
     }
 
-    const nombreArchivo = ordenTxt + (datos.proveedor ? ' - ' + limpiarNombre_(datos.proveedor) : ' - ticket');
-    const linkImagen = guardarImagenEnDrive_(carpeta, payload.imagenBase64, payload.mimeType, nombreArchivo);
+    // La imagen no debe frenar la carga: si falla, igual guardamos la fila y lo avisamos.
+    let linkImagen = '';
+    try {
+      const nombreArchivo = ordenTxt + (datos.proveedor ? ' - ' + limpiarNombre_(datos.proveedor) : ' - ticket');
+      linkImagen = guardarImagenEnDrive_(carpetaMes, payload.imagenBase64, payload.mimeType, nombreArchivo);
+    } catch (err) {
+      estado = agregarAviso_(estado, 'no se guardó la imagen: ' + err.message);
+    }
 
     const usuario = Session.getActiveUser().getEmail() || '';
     hoja.appendRow([
@@ -191,37 +199,60 @@ function procesarTicket(payload) {
 
 
 // ─────────────────────────────────────────────────────────────────────────
-//  Archivos propios de cada usuario (se crean una vez y se recuerdan)
+//  Estructura por mes en el Drive del usuario (se crea sola)
+//     Rendiciones / AAAA-MM Mes / Rendicion AAAA-MM Mes
 // ─────────────────────────────────────────────────────────────────────────
 
-function getCarpeta_() {
-  const props = PropertiesService.getUserProperties();
-  const id = props.getProperty('CARPETA_ID');
-  if (id) {
-    try { return DriveApp.getFolderById(id); } catch (e) { /* la borraron: se recrea */ }
-  }
-  const carpeta = DriveApp.createFolder(CONFIG.CARPETA_NOMBRE);
-  props.setProperty('CARPETA_ID', carpeta.getId());
-  return carpeta;
+const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+               'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
+// Etiqueta del mes actual, ej: "2026-07 Julio" (ordenable y legible).
+function etiquetaMes_() {
+  const tz = Session.getScriptTimeZone() || 'America/Argentina/Buenos_Aires';
+  const d = new Date();
+  const anio = Utilities.formatDate(d, tz, 'yyyy');
+  const mm = Utilities.formatDate(d, tz, 'MM');
+  return anio + '-' + mm + ' ' + MESES[Number(mm) - 1];
 }
 
-function getRendicionSheet_() {
-  const props = PropertiesService.getUserProperties();
-  const id = props.getProperty('RENDICION_ID');
-  let ss = null;
-  if (id) {
-    try { ss = SpreadsheetApp.openById(id); } catch (e) { ss = null; /* la borraron: se recrea */ }
-  }
-  if (!ss) {
-    ss = SpreadsheetApp.create(CONFIG.RENDICION_NOMBRE);
-    props.setProperty('RENDICION_ID', ss.getId());
+// Busca una subcarpeta por nombre; si no existe, la crea.
+function getOrCreateSubcarpeta_(padre, nombre) {
+  const it = padre.getFoldersByName(nombre);
+  return it.hasNext() ? it.next() : padre.createFolder(nombre);
+}
+
+// Carpeta del mes actual dentro de "Rendiciones".
+function getCarpetaMes_() {
+  const raiz = getOrCreateSubcarpeta_(DriveApp.getRootFolder(), CONFIG.CARPETA_RAIZ);
+  return getOrCreateSubcarpeta_(raiz, etiquetaMes_());
+}
+
+// Planilla del mes actual, dentro de la carpeta del mes.
+function getRendicionSheet_(carpetaMes) {
+  const nombre = CONFIG.RENDICION_NOMBRE + ' ' + etiquetaMes_();
+  const it = carpetaMes.getFilesByName(nombre);
+  let ss;
+  if (it.hasNext()) {
+    ss = SpreadsheetApp.open(it.next());
+  } else {
+    ss = SpreadsheetApp.create(nombre);
+    DriveApp.getFileById(ss.getId()).moveTo(carpetaMes); // sacarla de la raíz y meterla al mes
   }
   return getOrCreateHoja_(ss);
 }
 
 function getOrCreateHoja_(ss) {
   let hoja = ss.getSheetByName(CONFIG.TAB_RENDICION);
-  if (!hoja) hoja = ss.insertSheet(CONFIG.TAB_RENDICION);
+  if (!hoja) {
+    // Reusar la hoja por defecto (evita dejar una "Hoja 1" vacía que confunde).
+    const primera = ss.getSheets()[0];
+    if (primera && primera.getLastRow() === 0) {
+      primera.setName(CONFIG.TAB_RENDICION);
+      hoja = primera;
+    } else {
+      hoja = ss.insertSheet(CONFIG.TAB_RENDICION);
+    }
+  }
   if (hoja.getLastRow() === 0) {
     hoja.appendRow(ENCABEZADOS);
     hoja.getRange(1, 1, 1, ENCABEZADOS.length).setFontWeight('bold');
