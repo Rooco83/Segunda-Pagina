@@ -37,6 +37,16 @@
     }
     .btn:disabled { background: #9aa5b1; }
     .hint { font-size: .8rem; color: #6b7280; margin-top: 4px; }
+    .combo { position: relative; }
+    .lista {
+      border: 1px solid #cbd2d9; border-radius: 10px; margin-top: 4px;
+      max-height: 240px; overflow-y: auto; background: #fff; display: none;
+    }
+    .lista.show { display: block; }
+    .lista div { padding: 12px; border-bottom: 1px solid #eef1f4; cursor: pointer; }
+    .lista div:last-child { border-bottom: none; }
+    .lista div:hover, .lista div:active { background: #eff4ff; }
+    .elegido { font-size: .85rem; color: #16a34a; margin-top: 6px; font-weight: 600; display: none; }
     .card {
       background: #fff; border-radius: 12px; padding: 16px; margin-top: 18px;
       box-shadow: 0 1px 4px rgba(0,0,0,.08);
@@ -55,8 +65,13 @@
   <header>📸 Carga de Tickets</header>
 
   <main>
-    <label for="cco">Evento (CCO)</label>
-    <select id="cco"><option>Cargando…</option></select>
+    <label for="ccoBuscar">Evento (CCO)</label>
+    <div class="combo">
+      <input id="ccoBuscar" placeholder="Escribí palabras clave para buscar…" autocomplete="off">
+      <div id="ccoLista" class="lista"></div>
+    </div>
+    <div class="elegido" id="ccoElegido"></div>
+    <input type="hidden" id="cco">
 
     <label for="cuenta">Cuenta</label>
     <select id="cuenta"><option>Cargando…</option></select>
@@ -80,17 +95,72 @@
   <script>
     let imagenBase64 = null;
     let mimeType = null;
+    let ccosAll = [];   // lista completa de eventos (CCO) para el buscador
 
     // Al abrir la app, pedimos las listas de los desplegables.
     google.script.run.withSuccessHandler(llenarOpciones).getOpciones();
 
     function llenarOpciones(op) {
-      const cco = document.getElementById('cco');
+      ccosAll = op.ccos || [];
       const cuenta = document.getElementById('cuenta');
-      cco.innerHTML = '<option value="">Elegí un evento (CCO)…</option>';
-      op.ccos.forEach(function (v) { cco.add(new Option(v, v)); });
       cuenta.innerHTML = '<option value="">Elegí una cuenta…</option>';
       op.cuentas.forEach(function (v) { cuenta.add(new Option(v, v)); });
+      document.getElementById('ccoBuscar').placeholder =
+        'Buscar entre ' + ccosAll.length + ' eventos…';
+    }
+
+    // ── Buscador de Evento (CCO) por palabras clave ─────────────────────────
+    const ccoBuscar = document.getElementById('ccoBuscar');
+    const ccoLista = document.getElementById('ccoLista');
+
+    ccoBuscar.addEventListener('input', function () {
+      // Al escribir, se borra la selección previa hasta que elijas una opción.
+      document.getElementById('cco').value = '';
+      document.getElementById('ccoElegido').style.display = 'none';
+      renderCco(ccoBuscar.value);
+    });
+    ccoBuscar.addEventListener('focus', function () { renderCco(ccoBuscar.value); });
+
+    // Cerrar la lista si tocás fuera del buscador.
+    document.addEventListener('click', function (ev) {
+      if (!ev.target.closest('.combo')) ccoLista.classList.remove('show');
+    });
+
+    function renderCco(q) {
+      // Cada palabra que escribís tiene que aparecer en el nombre (en cualquier orden).
+      const tokens = q.toLowerCase().split(/\s+/).filter(Boolean);
+      let res = ccosAll.filter(function (c) {
+        const t = c.toLowerCase();
+        return tokens.every(function (k) { return t.indexOf(k) > -1; });
+      });
+      const total = res.length;
+      res = res.slice(0, 50); // mostramos hasta 50 para que vaya rápido
+
+      ccoLista.innerHTML = '';
+      if (res.length === 0) { ccoLista.classList.remove('show'); return; }
+      res.forEach(function (c) {
+        const d = document.createElement('div');
+        d.textContent = c;
+        d.addEventListener('click', function () { elegirCco(c); });
+        ccoLista.appendChild(d);
+      });
+      if (total > 50) {
+        const info = document.createElement('div');
+        info.style.color = '#6b7280';
+        info.style.fontSize = '.8rem';
+        info.textContent = 'Mostrando 50 de ' + total + '. Agregá más palabras para afinar.';
+        ccoLista.appendChild(info);
+      }
+      ccoLista.classList.add('show');
+    }
+
+    function elegirCco(c) {
+      document.getElementById('cco').value = c;
+      ccoBuscar.value = c;
+      const e = document.getElementById('ccoElegido');
+      e.textContent = '✓ ' + c;
+      e.style.display = 'block';
+      ccoLista.classList.remove('show');
     }
 
     // Cuando elegís una foto: la achicamos (para que suba rápido) y mostramos preview.

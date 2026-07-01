@@ -178,9 +178,11 @@ function procesarTicket(payload) {
       estado                                 // K  Estado
     ]);
 
-    // Formato de moneda a la celda del importe (para que sume en el TOTAL).
+    // Formato de moneda según lo que leyó Gemini (ARS, USD, EUR, etc.), para que
+    // cada importe muestre su moneda y siga sumando en el TOTAL.
     const fila = hoja.getLastRow();
-    hoja.getRange(fila, COL_IMPORTE).setNumberFormat('"ARS"#,##0.00');
+    const codigoMoneda = (datos.moneda || CONFIG.MONEDA_ESPERADA).toUpperCase();
+    hoja.getRange(fila, COL_IMPORTE).setNumberFormat('"' + codigoMoneda + ' "#,##0.00');
 
     return {
       ok: true,
