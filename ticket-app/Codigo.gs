@@ -57,7 +57,8 @@ const CONFIG = {
   ],
 
   MONEDA_ESPERADA: 'ARS',
-  GEMINI_MODEL: 'gemini-2.5-flash'
+  GEMINI_MODEL: 'gemini-2.5-flash',
+  GEMINI_MODEL_FALLBACK: 'gemini-2.0-flash' // si el principal está saturado, se usa este
 };
 
 const ENCABEZADOS = [
@@ -290,12 +291,11 @@ function guardarImagenEnDrive_(carpeta, base64, mimeType, nombre) {
 }
 
 function leerTicketConGemini_(base64, mimeType) {
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
-    CONFIG.GEMINI_MODEL + ':generateContent?key=' + getGeminiApiKey_();
-
   const prompt =
     'Sos un asistente que extrae datos de comprobantes (tickets, facturas, recibos), ' +
     'incluso si es una captura de pantalla o una foto torcida. ' +
+    'Interpretá el significado, no la palabra exacta (el total puede aparecer como ' +
+    '"Total", "Importe", "Monto", "Total a pagar", "Neto", etc.). ' +
     'Devolvé SOLO los datos que puedas leer con seguridad:\n' +
     '- fecha: la fecha del comprobante en formato DD/MM/AAAA.\n' +
     '- proveedor: el nombre del comercio o empresa que emite el comprobante.\n' +
@@ -325,20 +325,37 @@ function leerTicketConGemini_(base64, mimeType) {
     }
   };
 
-  const respuesta = UrlFetchApp.fetch(url, {
+  const opciones = {
     method: 'post',
     contentType: 'application/json',
     payload: JSON.stringify(payload),
     muteHttpExceptions: true
-  });
+  };
 
-  const codigo = respuesta.getResponseCode();
-  if (codigo !== 200) {
-    throw new Error('Gemini respondió ' + codigo + ': ' + respuesta.getContentText().slice(0, 200));
+  const key = getGeminiApiKey_();
+  const base = 'https://generativelanguage.googleapis.com/v1beta/models/';
+  const modelos = [CONFIG.GEMINI_MODEL, CONFIG.GEMINI_MODEL_FALLBACK];
+  let ultimoError = 'Gemini no respondió';
+
+  // Prueba cada modelo; si está saturado (503/429/500) reintenta con espera creciente.
+  for (var mi = 0; mi < modelos.length; mi++) {
+    const url = base + modelos[mi] + ':generateContent?key=' + key;
+    for (var intento = 0; intento < 3; intento++) {
+      const respuesta = UrlFetchApp.fetch(url, opciones);
+      const codigo = respuesta.getResponseCode();
+      if (codigo === 200) {
+        const json = JSON.parse(respuesta.getContentText());
+        return JSON.parse(json.candidates[0].content.parts[0].text);
+      }
+      ultimoError = 'Gemini (' + modelos[mi] + ') respondió ' + codigo;
+      if (codigo === 503 || codigo === 429 || codigo === 500) {
+        Utilities.sleep(1200 * (intento + 1)); // 1.2s, 2.4s, 3.6s y reintenta
+        continue;
+      }
+      break; // otro tipo de error: no reintentar con este modelo
+    }
   }
-  const json = JSON.parse(respuesta.getContentText());
-  const texto = json.candidates[0].content.parts[0].text;
-  return JSON.parse(texto);
+  throw new Error(ultimoError + '. Estaba saturado; probá de nuevo en unos segundos.');
 }
 
 function agregarAviso_(estado, aviso) {
