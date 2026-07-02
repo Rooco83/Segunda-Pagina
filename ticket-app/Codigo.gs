@@ -39,7 +39,11 @@ const ENCABEZADOS = [
   'EVENTO (CCO)', 'CUENTA', 'DESCRIPCION', 'QUIEN HIZO EL GASTO', 'COMENTARIO',
   'IMAGEN', 'CARGADO POR', 'CARGADO', 'ESTADO'
 ];
-const COL_IMPORTE = 5; // columna E
+const COL_IMPORTE = 5;      // columna E (IMPORTE)
+const HEADER_ROW = 6;       // fila de encabezados
+const FIRST_DATA_ROW = 7;   // primera fila de datos / TOTAL inicial
+const CLR_NAVY = '#00263E';
+const CLR_ORANGE = '#F15A24';
 
 function getGeminiApiKey_() {
   const key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
@@ -223,7 +227,7 @@ function procesarTicket(p) {
     }
 
     const ss = getSpreadsheetIn_(carpetaDestino, ssName);
-    const hoja = getOrCreateHoja_(ss, solapa);
+    const hoja = getOrCreateHoja_(ss, solapa, esTarjeta ? (p.titular || '') : (p.cco || ''), esTarjeta ? solapa : '');
     const carpetaImg = getOrCreateSubcarpeta_(carpetaDestino, CONFIG.CARPETA_IMAGENES);
 
     const orden = siguienteNumeroDeOrden_(hoja);
@@ -249,13 +253,11 @@ function procesarTicket(p) {
 
     const cargadoPor = Session.getActiveUser().getEmail() || '';
     const monedaTxt = (p.moneda || CONFIG.MONEDA_ESPERADA).toUpperCase();
-    hoja.appendRow([
+    agregarFila_(hoja, [
       orden, p.fecha || '', p.tipoComprobante || '', p.proveedor || '', parseImporte_(p.importe), monedaTxt,
       p.titular || '', p.cco || '', p.cuenta || '', p.descripcion || '', p.quienGasto || '', p.comentario || '',
       link, cargadoPor, new Date(), estado
-    ]);
-    const fila = hoja.getLastRow();
-    hoja.getRange(fila, COL_IMPORTE).setNumberFormat('"' + monedaTxt + ' "#,##0.00');
+    ], monedaTxt);
 
     return {
       ok: true, orden: ordenTxt, tipo: p.tipo, titular: p.titular || '', cco: p.cco || '',
@@ -287,31 +289,71 @@ function getSpreadsheetIn_(folder, nombre) {
   return ss;
 }
 
-function getOrCreateHoja_(ss, nombre) {
-  let hoja = ss.getSheetByName(nombre);
-  if (!hoja) {
-    const primera = ss.getSheets()[0];
-    if (primera && primera.getLastRow() === 0 && ['Hoja 1', 'Hoja1', 'Sheet1'].indexOf(primera.getName()) > -1) {
-      primera.setName(nombre); hoja = primera;
-    } else {
-      hoja = ss.insertSheet(nombre);
-    }
+function getOrCreateHoja_(ss, solapa, nombreCtx, fechaCtx) {
+  let hoja = ss.getSheetByName(solapa);
+  if (hoja) return hoja; // ya existe y está formateada
+  const primera = ss.getSheets()[0];
+  if (primera && primera.getLastRow() === 0 && ['Hoja 1', 'Hoja1', 'Sheet1'].indexOf(primera.getName()) > -1) {
+    primera.setName(solapa); hoja = primera;
+  } else {
+    hoja = ss.insertSheet(solapa);
   }
-  if (hoja.getLastRow() === 0) {
-    hoja.appendRow(ENCABEZADOS);
-    hoja.getRange(1, 1, 1, ENCABEZADOS.length).setFontWeight('bold');
-    hoja.setFrozenRows(1);
-    hoja.getRange(2, COL_IMPORTE, hoja.getMaxRows() - 1, 1).setNumberFormat('"ARS "#,##0.00');
-  }
+  construirFormato_(hoja, nombreCtx, fechaCtx);
   return hoja;
 }
 
+// Arma el formato estilo "Planilla de Rendición" (bloque de marca, título, encabezados, TOTAL).
+function construirFormato_(hoja, nombreCtx, fechaCtx) {
+  const n = ENCABEZADOS.length;
+  hoja.getRange('A1:C1').merge().setValue('VENUE BRAND EXPERIENCE').setFontWeight('bold');
+  hoja.getRange('A2:C2').merge().setValue('Nombre: ' + (nombreCtx || ''));
+  hoja.getRange('A3:C3').merge().setValue('Fecha: ' + (fechaCtx || ''));
+  hoja.getRange('A1:C3').setBackground(CLR_NAVY).setFontColor('#FFFFFF');
+
+  hoja.getRange(5, 1, 1, n).merge().setValue('PLANILLA DE RENDICION')
+    .setBackground(CLR_ORANGE).setFontColor('#FFFFFF').setFontWeight('bold').setHorizontalAlignment('center');
+
+  hoja.getRange(HEADER_ROW, 1, 1, n).setValues([ENCABEZADOS])
+    .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setHorizontalAlignment('center');
+
+  hoja.getRange(FIRST_DATA_ROW, 1, 1, n).setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold');
+  hoja.getRange(FIRST_DATA_ROW, 1).setValue('TOTAL');
+  hoja.getRange(FIRST_DATA_ROW, COL_IMPORTE).setNumberFormat('"$ "#,##0.00');
+
+  hoja.setFrozenRows(HEADER_ROW);
+  hoja.autoResizeColumns(1, n);
+}
+
+// Inserta una fila de datos ANTES de la fila TOTAL (para que el TOTAL quede siempre abajo y sume).
+function agregarFila_(hoja, valores, monedaTxt) {
+  const totalRow = hoja.getLastRow();
+  hoja.insertRowsBefore(totalRow, 1);
+  const fila = totalRow;
+  hoja.getRange(fila, 1, 1, valores.length).setValues([valores]);
+  hoja.getRange(fila, 1, 1, ENCABEZADOS.length)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle')
+    .setBorder(true, true, true, true, true, true, '#CBD2D9', SpreadsheetApp.BorderStyle.SOLID);
+  hoja.getRange(fila, COL_IMPORTE).setNumberFormat('"' + monedaTxt + ' "#,##0.00');
+
+  const nuevoTotal = hoja.getLastRow();
+  const col = columnaLetra_(COL_IMPORTE);
+  hoja.getRange(nuevoTotal, COL_IMPORTE).setFormula('=SUM(' + col + FIRST_DATA_ROW + ':' + col + (nuevoTotal - 1) + ')');
+  hoja.autoResizeColumns(1, ENCABEZADOS.length);
+  return fila;
+}
+
+function columnaLetra_(num) {
+  let s = '';
+  while (num > 0) { const m = (num - 1) % 26; s = String.fromCharCode(65 + m) + s; num = Math.floor((num - 1) / 26); }
+  return s;
+}
+
 function siguienteNumeroDeOrden_(hoja) {
-  const ultima = hoja.getLastRow();
-  if (ultima < 2) return 1;
-  const nums = hoja.getRange(2, 1, ultima - 1, 1).getValues();
+  const totalRow = hoja.getLastRow();
+  if (totalRow <= FIRST_DATA_ROW) return 1; // aún no hay datos (TOTAL en la primera fila de datos)
+  const vals = hoja.getRange(FIRST_DATA_ROW, 1, totalRow - FIRST_DATA_ROW, 1).getValues();
   let max = 0;
-  nums.forEach(function (f) { const n = parseInt(f[0], 10); if (!isNaN(n) && n > max) max = n; });
+  vals.forEach(function (f) { const nn = parseInt(f[0], 10); if (!isNaN(nn) && nn > max) max = nn; });
   return max + 1;
 }
 
