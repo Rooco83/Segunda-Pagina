@@ -152,7 +152,7 @@ function leerComprobante(base64, mimeType) {
     '- tipo_comprobante: tipo del comprobante (ej: "Factura A", "Factura B", "Factura C", "Ticket", "Recibo", "Nota de crédito"). Si no se distingue, "Ticket".\n' +
     '- fecha: fecha del comprobante en formato DD/MM/AAAA.\n' +
     '- proveedor: nombre del comercio o empresa que emite.\n' +
-    '- importe_total: monto TOTAL final a pagar, solo el número (punto para decimales, sin separador de miles).\n' +
+    '- importe_total: el monto TOTAL final a pagar, como número. IMPORTANTE: los comprobantes usan formato ARGENTINO, donde el punto (.) separa MILES y la coma (,) separa decimales. Ejemplos: "$128.400" = 128400 ; "$1.234,56" = 1234.56 ; "$500" = 500. Devolvé el número COMPLETO, sin separador de miles, usando punto solo si hay decimales.\n' +
     '- moneda: código (ARS, USD, EUR, etc.).\n' +
     'Si algún dato no aparece, devolvé cadena vacía (0 para el importe).';
 
@@ -387,12 +387,13 @@ function parseFecha_(s) {
 function diaFin_(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59); }
 
 // Convierte "10.000,00" / "10000.00" / 10000 a número.
+// Formato ARGENTINO: el punto (.) es separador de miles y la coma (,) el decimal.
+// Ej: "128.400" -> 128400 ; "1.234,56" -> 1234.56 ; "128400" -> 128400.
 function parseImporte_(v) {
   if (typeof v === 'number') return v;
-  let s = String(v || '').replace(/[^\d.,-]/g, '');
+  let s = String(v == null ? '' : v).replace(/[^\d.,-]/g, '');
   if (s === '') return '';
-  if (s.indexOf('.') > -1 && s.indexOf(',') > -1) s = s.replace(/\./g, '').replace(',', '.'); // es-AR
-  else if (s.indexOf(',') > -1) s = s.replace(',', '.');
+  s = s.replace(/\./g, '').replace(',', '.');
   const n = parseFloat(s);
   return isNaN(n) ? '' : n;
 }

@@ -284,11 +284,12 @@
       document.getElementById(p+'_estado').style.display='none';
       if(d && d.ok){
         set(p+'_tipo',d.tipoComprobante); set(p+'_fecha',d.fecha); set(p+'_prov',d.proveedor);
-        set(p+'_imp',d.importe); set(p+'_mon',d.moneda||'ARS');
+        document.getElementById(p+'_imp').value = fmtAR(d.importe); set(p+'_mon',d.moneda||'ARS');
       }
       abrirDatos(p);
     }
     function set(id,v){ document.getElementById(id).value = (v===undefined||v===null)?'':v; }
+    function fmtAR(v){ if(v===''||v===null||v===undefined) return ''; var n=Number(v); if(isNaN(n)) return String(v); return n.toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:2}); }
     function abrirDatos(p){ document.getElementById(p+'_datos').style.display='block'; }
     function manual(p){ st[p].img=null; st[p].mime=null; document.getElementById(p+'_foto').value=''; abrirDatos(p); document.getElementById(p+'_imp').focus(); }
 
