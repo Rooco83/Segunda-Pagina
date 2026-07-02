@@ -44,6 +44,10 @@ const HEADER_ROW = 6;       // fila de encabezados
 const FIRST_DATA_ROW = 7;   // primera fila de datos / TOTAL inicial
 const CLR_NAVY = '#00263E';
 const CLR_ORANGE = '#F15A24';
+const CLR_GRIS = '#F1F3F5';   // fondo gris clarito de las filas de datos
+const CLR_TEXTO = '#212721';  // texto oscuro de los datos
+// Anchos (px) por columna, en el orden de ENCABEZADOS
+const ANCHOS = [58, 95, 120, 150, 115, 70, 140, 175, 150, 170, 140, 160, 120, 160, 120, 120];
 
 function getGeminiApiKey_() {
   const key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
@@ -321,7 +325,9 @@ function construirFormato_(hoja, nombreCtx, fechaCtx) {
   hoja.getRange(FIRST_DATA_ROW, COL_IMPORTE).setNumberFormat('"$ "#,##0.00');
 
   hoja.setFrozenRows(HEADER_ROW);
-  hoja.autoResizeColumns(1, n);
+  // Anchos fijos + texto que se ajusta dentro de la celda (wrap)
+  for (var i = 0; i < n; i++) hoja.setColumnWidth(i + 1, ANCHOS[i] || 120);
+  hoja.getRange(HEADER_ROW, 1, hoja.getMaxRows() - HEADER_ROW + 1, n).setWrap(true);
 }
 
 // Inserta una fila de datos ANTES de la fila TOTAL (para que el TOTAL quede siempre abajo y sume).
@@ -331,14 +337,14 @@ function agregarFila_(hoja, valores, monedaTxt) {
   const fila = totalRow;
   hoja.getRange(fila, 1, 1, valores.length).setValues([valores]);
   hoja.getRange(fila, 1, 1, ENCABEZADOS.length)
-    .setHorizontalAlignment('center').setVerticalAlignment('middle')
+    .setBackground(CLR_GRIS).setFontColor(CLR_TEXTO)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true)
     .setBorder(true, true, true, true, true, true, '#CBD2D9', SpreadsheetApp.BorderStyle.SOLID);
   hoja.getRange(fila, COL_IMPORTE).setNumberFormat('"' + monedaTxt + ' "#,##0.00');
 
   const nuevoTotal = hoja.getLastRow();
   const col = columnaLetra_(COL_IMPORTE);
   hoja.getRange(nuevoTotal, COL_IMPORTE).setFormula('=SUM(' + col + FIRST_DATA_ROW + ':' + col + (nuevoTotal - 1) + ')');
-  hoja.autoResizeColumns(1, ENCABEZADOS.length);
   return fila;
 }
 
