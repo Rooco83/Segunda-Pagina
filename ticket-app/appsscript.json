@@ -3,7 +3,7 @@
   "dependencies": {},
   "webapp": {
     "executeAs": "USER_DEPLOYING",
-    "access": "DOMAIN"
+    "access": "ANYONE"
   },
   "exceptionLogging": "STACKDRIVER",
   "runtimeVersion": "V8"
