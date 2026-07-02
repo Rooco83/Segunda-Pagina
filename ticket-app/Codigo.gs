@@ -34,20 +34,30 @@ const CONFIG = {
   GEMINI_MODEL_FALLBACK: 'gemini-2.0-flash'
 };
 
-const ENCABEZADOS = [
+// TARJETA: incluye TITULAR. CAJA CHICA: sin TITULAR. Ninguna lleva "CARGADO POR".
+const ENC_TARJETA = [
   'ORDEN', 'FECHA', 'TIPO COMPROBANTE', 'PROVEEDOR', 'IMPORTE', 'MONEDA', 'TITULAR',
   'EVENTO (CCO)', 'CUENTA', 'DESCRIPCION', 'QUIEN HIZO EL GASTO', 'COMENTARIO',
-  'IMAGEN', 'CARGADO POR', 'CARGADO', 'ESTADO'
+  'IMAGEN', 'CARGADO', 'ESTADO'
 ];
-const COL_IMPORTE = 5;      // columna E (IMPORTE)
+const ENC_CAJA = [
+  'ORDEN', 'FECHA', 'TIPO COMPROBANTE', 'PROVEEDOR', 'IMPORTE', 'MONEDA',
+  'EVENTO (CCO)', 'CUENTA', 'DESCRIPCION', 'QUIEN HIZO EL GASTO', 'COMENTARIO',
+  'IMAGEN', 'CARGADO', 'ESTADO'
+];
+const COL_IMPORTE = 5;      // columna E (IMPORTE) en ambos formatos
 const HEADER_ROW = 6;       // fila de encabezados
 const FIRST_DATA_ROW = 7;   // primera fila de datos / TOTAL inicial
 const CLR_NAVY = '#00263E';
 const CLR_ORANGE = '#F15A24';
 const CLR_GRIS = '#F1F3F5';   // fondo gris clarito de las filas de datos
 const CLR_TEXTO = '#212721';  // texto oscuro de los datos
-// Anchos (px) por columna, en el orden de ENCABEZADOS
-const ANCHOS = [58, 95, 120, 150, 115, 70, 140, 175, 150, 170, 140, 160, 120, 160, 120, 120];
+// Ancho (px) por nombre de columna
+const ANCHO_COL = {
+  'ORDEN': 58, 'FECHA': 95, 'TIPO COMPROBANTE': 120, 'PROVEEDOR': 150, 'IMPORTE': 115,
+  'MONEDA': 70, 'TITULAR': 140, 'EVENTO (CCO)': 175, 'CUENTA': 150, 'DESCRIPCION': 170,
+  'QUIEN HIZO EL GASTO': 140, 'COMENTARIO': 160, 'IMAGEN': 120, 'CARGADO': 120, 'ESTADO': 120
+};
 
 function getGeminiApiKey_() {
   const key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
@@ -231,8 +241,9 @@ function procesarTicket(p) {
       solapa = CONFIG.SOLAPA_CAJA;
     }
 
+    const headers = esTarjeta ? ENC_TARJETA : ENC_CAJA;
     const ss = getSpreadsheetIn_(carpetaDestino, ssName);
-    const hoja = getOrCreateHoja_(ss, solapa, esTarjeta ? (p.titular || '') : (p.cco || ''), esTarjeta ? solapa : '');
+    const hoja = getOrCreateHoja_(ss, solapa, esTarjeta ? (p.titular || '') : (p.cco || ''), esTarjeta ? solapa : '', headers);
     const carpetaImg = getOrCreateSubcarpeta_(carpetaDestino, CONFIG.CARPETA_IMAGENES);
 
     const orden = siguienteNumeroDeOrden_(hoja);
@@ -256,13 +267,12 @@ function procesarTicket(p) {
       estado = agregarAviso_(estado, 'no se guardó el archivo: ' + e.message);
     }
 
-    const cargadoPor = Session.getActiveUser().getEmail() || '';
     const monedaTxt = (p.moneda || CONFIG.MONEDA_ESPERADA).toUpperCase();
-    agregarFila_(hoja, [
-      orden, p.fecha || '', p.tipoComprobante || '', p.proveedor || '', parseImporte_(p.importe), monedaTxt,
-      p.titular || '', p.cco || '', p.cuenta || '', p.descripcion || '', p.quienGasto || '', p.comentario || '',
-      link, cargadoPor, new Date(), estado
-    ], monedaTxt);
+    const comun = [orden, p.fecha || '', p.tipoComprobante || '', p.proveedor || '', parseImporte_(p.importe), monedaTxt];
+    const valores = esTarjeta
+      ? comun.concat([p.titular || '', p.cco || '', p.cuenta || '', p.descripcion || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado])
+      : comun.concat([p.cco || '', p.cuenta || '', p.descripcion || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado]);
+    agregarFila_(hoja, valores, monedaTxt);
 
     return {
       ok: true, orden: ordenTxt, tipo: p.tipo, titular: p.titular || '', cco: p.cco || '',
@@ -294,7 +304,7 @@ function getSpreadsheetIn_(folder, nombre) {
   return ss;
 }
 
-function getOrCreateHoja_(ss, solapa, nombreCtx, fechaCtx) {
+function getOrCreateHoja_(ss, solapa, nombreCtx, fechaCtx, headers) {
   let hoja = ss.getSheetByName(solapa);
   if (hoja) return hoja; // ya existe y está formateada
   const primera = ss.getSheets()[0];
@@ -303,13 +313,13 @@ function getOrCreateHoja_(ss, solapa, nombreCtx, fechaCtx) {
   } else {
     hoja = ss.insertSheet(solapa);
   }
-  construirFormato_(hoja, nombreCtx, fechaCtx);
+  construirFormato_(hoja, nombreCtx, fechaCtx, headers);
   return hoja;
 }
 
 // Arma el formato estilo "Planilla de Rendición" (bloque de marca, título, encabezados, TOTAL).
-function construirFormato_(hoja, nombreCtx, fechaCtx) {
-  const n = ENCABEZADOS.length;
+function construirFormato_(hoja, nombreCtx, fechaCtx, headers) {
+  const n = headers.length;
   hoja.getRange('A1:C1').merge().setValue('VENUE BRAND EXPERIENCE').setFontWeight('bold');
   hoja.getRange('A2:C2').merge().setValue('Nombre: ' + (nombreCtx || ''));
   hoja.getRange('A3:C3').merge().setValue('Fecha: ' + (fechaCtx || ''));
@@ -318,7 +328,7 @@ function construirFormato_(hoja, nombreCtx, fechaCtx) {
   hoja.getRange(5, 1, 1, n).merge().setValue('PLANILLA DE RENDICION')
     .setBackground(CLR_ORANGE).setFontColor('#FFFFFF').setFontWeight('bold').setHorizontalAlignment('center');
 
-  hoja.getRange(HEADER_ROW, 1, 1, n).setValues([ENCABEZADOS])
+  hoja.getRange(HEADER_ROW, 1, 1, n).setValues([headers])
     .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setHorizontalAlignment('center');
 
   hoja.getRange(FIRST_DATA_ROW, 1, 1, n).setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold');
@@ -327,7 +337,7 @@ function construirFormato_(hoja, nombreCtx, fechaCtx) {
 
   hoja.setFrozenRows(HEADER_ROW);
   // Anchos fijos + texto que se ajusta dentro de la celda (wrap)
-  for (var i = 0; i < n; i++) hoja.setColumnWidth(i + 1, ANCHOS[i] || 120);
+  for (var i = 0; i < n; i++) hoja.setColumnWidth(i + 1, ANCHO_COL[headers[i]] || 120);
   hoja.getRange(HEADER_ROW, 1, hoja.getMaxRows() - HEADER_ROW + 1, n).setWrap(true);
 }
 
@@ -337,7 +347,7 @@ function agregarFila_(hoja, valores, monedaTxt) {
   hoja.insertRowsBefore(totalRow, 1);
   const fila = totalRow;
   hoja.getRange(fila, 1, 1, valores.length).setValues([valores]);
-  hoja.getRange(fila, 1, 1, ENCABEZADOS.length)
+  hoja.getRange(fila, 1, 1, valores.length)
     .setBackground(CLR_GRIS).setFontColor(CLR_TEXTO)
     .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true)
     .setBorder(true, true, true, true, true, true, '#CBD2D9', SpreadsheetApp.BorderStyle.SOLID);
