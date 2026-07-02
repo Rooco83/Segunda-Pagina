@@ -1,60 +1,33 @@
 /**
  * ============================================================================
- *  APP CARGA DE TICKETS / RENDICIÓN  ·  Backend (Google Apps Script)
+ *  APP RENDICIONES VENUE  ·  Backend (Google Apps Script)
  * ============================================================================
- *  Modo EQUIPO: cualquiera de @venue carga un gasto y lo asigna a un TITULAR
- *  de tarjeta. Todo se guarda ORDENADO en una Unidad compartida:
+ *  Dos flujos:
+ *   - TARJETA:   carpeta por INICIALES del titular; solapas por VENCIMIENTO (VTOs)
+ *   - CAJA CHICA: carpeta por CCO; una sola solapa que acumula gastos
  *
- *    Unidad compartida / Rendiciones / (AAAA-MM Mes) /
- *        - Rendicion AAAA-MM Mes   (planilla: 1 SOLAPA por titular)
- *        - <Titular>               (carpeta con los comprobantes de ese titular)
+ *  Todo dentro de:  <Unidad compartida> / Rendiciones / Tarjeta|Caja Chica / ...
+ *  Info fija (desplegables + vencimientos) leída de la planilla INFO_SHEET_ID.
  *
- *  El N° de orden es propio de cada titular (cada solapa arranca en 1) y la
- *  imagen se guarda con ese número. Cada mes se crea todo nuevo.
- *
- *  La app corre "a nombre del dueño" (execute as owner) → solo el dueño necesita
- *  acceso a la Unidad compartida y al archivo de Centros de Costos.
+ *  La app corre "a nombre del dueño" (executeAs USER_DEPLOYING), acceso DOMAIN.
  * ============================================================================
  */
 
-// ─────────────────────────────────────────────────────────────────────────
-//  CONFIG
-// ─────────────────────────────────────────────────────────────────────────
 const CONFIG = {
-  // ID de la carpeta "Rendiciones" DENTRO de la Unidad compartida (ahí se crea todo).
-  // Se saca de la URL de la carpeta:  .../folders/ESTO_ES_EL_ID
+  // Planilla de info fija (CCOs, CUENTAS, AMEX, VTOs)
+  INFO_SHEET_ID: '1e5E3DNWjHWiAHswNIIXAmj1nXODJVyQaJuh8KiFxcCY',
+  TAB_CCOS:    'CCOs',
+  TAB_CUENTAS: 'CUENTAS',
+  TAB_AMEX:    'AMEX',
+  TAB_VTOS:    'VTOs',
+  CCO_ANIO_MINIMO: 2025, // en CCOs se muestran los de este año en adelante
+
+  // Carpeta "Rendiciones" DENTRO de la Unidad compartida (pegá su ID).
   ROOT_FOLDER_ID: 'PEGA_AQUI_EL_ID_DE_LA_CARPETA_RENDICIONES',
-  RENDICION_NOMBRE: 'Rendicion', // base del nombre de la planilla mensual
-
-  // Titulares de tarjeta: una SOLAPA y una CARPETA de comprobantes por cada uno.
-  // Poné los nombres tal cual querés que aparezcan.
-  TITULARES: ['Titular 1', 'Titular 2', 'Titular 3'],
-
-  // Archivo de Centros de Costos (lo lee el dueño; no hace falta compartirlo).
-  CCO_SOURCE_SHEET_ID: 'PEGA_AQUI_EL_ID_DEL_ARCHIVO_DE_CENTROS_DE_COSTOS',
-  CCO_SOURCE_TAB: 'CENTROS DE COSTOS',
-  CCO_SOURCE_COL: 1,
-  CCO_ANIO_MINIMO: 2025,
-
-  CUENTAS: [
-    '512 - Ambientacion',
-    '514 - Catering Eventos Venue',
-    '534 - Almacen y Libreria',
-    '537 - Hoteles',
-    '547 - Movilidad (combustible)',
-    '548 - Gastos varios',
-    '551 - Fletes, moto y mensajeria',
-    '553 - Catering Produccion',
-    '554 - Pasajes',
-    '557 - Catering Clientes',
-    '558 - Gastos Socios',
-    '590 - Merchandising',
-    '606 - Ferreteria',
-    '611 - Taxis',
-    '622 - OSDE / Obra Social',
-    '640 - Suscripciones/membresías/Licencias',
-    '805 - Regalos fda, credenciales, ropa'
-  ],
+  SUB_TARJETA: 'Tarjeta',
+  SUB_CAJA:    'Caja Chica',
+  SOLAPA_CAJA: 'Gastos',
+  CARPETA_IMAGENES: 'Imágenes',
 
   MONEDA_ESPERADA: 'ARS',
   GEMINI_MODEL: 'gemini-2.5-flash',
@@ -62,16 +35,15 @@ const CONFIG = {
 };
 
 const ENCABEZADOS = [
-  'ORDEN', 'FECHA', 'EVENTO (CCO)', 'CUENTA', 'DESCRIPCION DEL GASTO', 'PROVEED', 'IMPORTE EN $',
-  'Moneda', 'Imagen', 'Cargado', 'Cargado por', 'Estado'
+  'ORDEN', 'FECHA', 'TIPO COMPROBANTE', 'PROVEEDOR', 'IMPORTE', 'MONEDA', 'TITULAR',
+  'EVENTO (CCO)', 'CUENTA', 'DESCRIPCION', 'QUIEN HIZO EL GASTO', 'COMENTARIO',
+  'IMAGEN', 'CARGADO POR', 'CARGADO', 'ESTADO'
 ];
-const COL_IMPORTE = 7;
+const COL_IMPORTE = 5; // columna E
 
 function getGeminiApiKey_() {
   const key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-  if (!key) {
-    throw new Error('Falta la clave de Gemini. Cargala en Configuración del proyecto → Propiedades del script → GEMINI_API_KEY.');
-  }
+  if (!key) throw new Error('Falta la clave de Gemini (Propiedades del script → GEMINI_API_KEY).');
   return key;
 }
 
@@ -81,125 +53,218 @@ function getGeminiApiKey_() {
 // ─────────────────────────────────────────────────────────────────────────
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('Carga de Tickets')
+    .setTitle('Rendiciones Venue')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1')
     .addMetaTag('mobile-web-app-capable', 'yes');
 }
 
 
 // ─────────────────────────────────────────────────────────────────────────
-//  2) Datos para los desplegables
+//  2) Datos para los desplegables (se llama al abrir la app)
 // ─────────────────────────────────────────────────────────────────────────
 function getOpciones() {
-  let ccos = [];
-  let avisoCco = '';
-  try {
-    ccos = leerCCOs_();
-  } catch (err) {
-    avisoCco = 'No se pudo leer la lista de eventos (CCO). Revisá el ID y la pestaña del archivo de Centros de Costos.';
-  }
-  return { ccos: ccos, cuentas: CONFIG.CUENTAS, titulares: CONFIG.TITULARES, avisoCco: avisoCco };
+  const res = { ccos: [], cuentas: [], titulares: [], aviso: '' };
+  try { res.ccos = leerCCOs_(); } catch (e) { res.aviso += 'CCOs. '; }
+  try { res.cuentas = leerCuentas_(); } catch (e) { res.aviso += 'Cuentas. '; }
+  try { res.titulares = leerTitulares_(); } catch (e) { res.aviso += 'Titulares. '; }
+  if (res.aviso) res.aviso = 'No se pudieron leer: ' + res.aviso + 'Revisá el ID/solapas de la planilla.';
+  return res;
+}
+
+function abrirInfo_() { return SpreadsheetApp.openById(CONFIG.INFO_SHEET_ID); }
+
+function columnaA_(tabName) {
+  const hoja = abrirInfo_().getSheetByName(tabName);
+  if (!hoja || hoja.getLastRow() === 0) return [];
+  return hoja.getRange(1, 1, hoja.getLastRow(), 1).getValues().map(function (f) { return String(f[0]).trim(); });
 }
 
 function leerCCOs_() {
-  const ss = SpreadsheetApp.openById(CONFIG.CCO_SOURCE_SHEET_ID);
-  const hoja = ss.getSheetByName(CONFIG.CCO_SOURCE_TAB);
-  if (!hoja || hoja.getLastRow() === 0) return [];
-
-  const valores = hoja.getRange(1, CONFIG.CCO_SOURCE_COL, hoja.getLastRow(), 1).getValues();
-  const vistos = {};
-  const lista = [];
-
-  valores.forEach(function (fila) {
-    const v = String(fila[0]).trim();
+  const vistos = {}, lista = [];
+  columnaA_(CONFIG.TAB_CCOS).forEach(function (v) {
     const m = v.match(/^(\d{4})\s+\S/);
-    if (m && parseInt(m[1], 10) >= CONFIG.CCO_ANIO_MINIMO) {
-      if (!vistos[v]) { vistos[v] = true; lista.push(v); }
+    if (m && parseInt(m[1], 10) >= CONFIG.CCO_ANIO_MINIMO && !vistos[v]) { vistos[v] = true; lista.push(v); }
+  });
+  return lista;
+}
+
+function leerCuentas_() {
+  return columnaA_(CONFIG.TAB_CUENTAS).filter(function (v) {
+    return v !== '' && v.toLowerCase() !== 'cuentas' && v.toLowerCase() !== 'cuenta';
+  });
+}
+
+// AMEX: A = iniciales, B = nombre completo. Devuelve [{nombre, iniciales}].
+function leerTitulares_() {
+  const hoja = abrirInfo_().getSheetByName(CONFIG.TAB_AMEX);
+  if (!hoja || hoja.getLastRow() === 0) return [];
+  const vals = hoja.getRange(1, 1, hoja.getLastRow(), 2).getValues();
+  const lista = [];
+  vals.forEach(function (f) {
+    const ini = String(f[0]).trim(), nom = String(f[1]).trim();
+    if (ini && nom && nom.toLowerCase() !== 'nombre') lista.push({ nombre: nom, iniciales: ini });
+  });
+  return lista;
+}
+
+// VTOs: A = etiqueta ("agosto 2026"), B = "dd/mm/aaaa - dd/mm/aaaa"
+function leerVtos_() {
+  const hoja = abrirInfo_().getSheetByName(CONFIG.TAB_VTOS);
+  if (!hoja || hoja.getLastRow() === 0) return [];
+  const vals = hoja.getRange(1, 1, hoja.getLastRow(), 2).getValues();
+  const lista = [];
+  vals.forEach(function (f) {
+    const etiqueta = String(f[0]).trim();
+    const rango = String(f[1]).trim();
+    const fechas = rango.match(/(\d{1,2}\/\d{1,2}\/\d{4}).*?(\d{1,2}\/\d{1,2}\/\d{4})/);
+    if (etiqueta && fechas) {
+      const desde = parseFecha_(fechas[1]), hasta = parseFecha_(fechas[2]);
+      if (desde && hasta) lista.push({ etiqueta: etiqueta, desde: desde, hasta: hasta });
     }
   });
-
   return lista;
+}
+
+// Devuelve la solapa (etiqueta del VTO) donde cae una fecha DD/MM/AAAA.
+function solapaParaFecha_(fechaStr) {
+  const f = parseFecha_(fechaStr) || new Date();
+  const vtos = leerVtos_();
+  for (var i = 0; i < vtos.length; i++) {
+    if (f >= vtos[i].desde && f <= diaFin_(vtos[i].hasta)) return vtos[i].etiqueta;
+  }
+  return 'Sin vencimiento';
 }
 
 
 // ─────────────────────────────────────────────────────────────────────────
-//  3) Procesar un ticket
-//     payload = { titular, cco, cuenta, descripcion, imagenBase64, mimeType }
+//  3) Leer el comprobante con Gemini (se llama al subir la foto)
+//     Devuelve datos EDITABLES para que la persona confirme o corrija.
 // ─────────────────────────────────────────────────────────────────────────
-function procesarTicket(payload) {
-  const titular = String(payload.titular || '').trim();
-  if (CONFIG.TITULARES.indexOf(titular) === -1) {
-    return { ok: false, error: 'Elegí un titular válido.' };
+function leerComprobante(base64, mimeType) {
+  const prompt =
+    'Sos un asistente que extrae datos de comprobantes (facturas, tickets, recibos), ' +
+    'incluso capturas o fotos torcidas. Interpretá el significado, no la palabra exacta.\n' +
+    'Devolvé SOLO lo que puedas leer con seguridad:\n' +
+    '- tipo_comprobante: tipo del comprobante (ej: "Factura A", "Factura B", "Factura C", "Ticket", "Recibo", "Nota de crédito"). Si no se distingue, "Ticket".\n' +
+    '- fecha: fecha del comprobante en formato DD/MM/AAAA.\n' +
+    '- proveedor: nombre del comercio o empresa que emite.\n' +
+    '- importe_total: monto TOTAL final a pagar, solo el número (punto para decimales, sin separador de miles).\n' +
+    '- moneda: código (ARS, USD, EUR, etc.).\n' +
+    'Si algún dato no aparece, devolvé cadena vacía (0 para el importe).';
+
+  const payload = {
+    contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType || 'image/jpeg', data: base64 } }] }],
+    generationConfig: {
+      temperature: 0, responseMimeType: 'application/json',
+      responseSchema: {
+        type: 'OBJECT',
+        properties: {
+          tipo_comprobante: { type: 'STRING' },
+          fecha:            { type: 'STRING' },
+          proveedor:        { type: 'STRING' },
+          importe_total:    { type: 'NUMBER' },
+          moneda:           { type: 'STRING' }
+        }
+      }
+    }
+  };
+  const opciones = { method: 'post', contentType: 'application/json', payload: JSON.stringify(payload), muteHttpExceptions: true };
+  const key = getGeminiApiKey_();
+  const base = 'https://generativelanguage.googleapis.com/v1beta/models/';
+  const modelos = [CONFIG.GEMINI_MODEL, CONFIG.GEMINI_MODEL_FALLBACK];
+  let ultimo = 'Gemini no respondió';
+
+  for (var mi = 0; mi < modelos.length; mi++) {
+    const url = base + modelos[mi] + ':generateContent?key=' + key;
+    for (var intento = 0; intento < 3; intento++) {
+      const r = UrlFetchApp.fetch(url, opciones);
+      const c = r.getResponseCode();
+      if (c === 200) {
+        const j = JSON.parse(r.getContentText());
+        const d = JSON.parse(j.candidates[0].content.parts[0].text);
+        return { ok: true, tipoComprobante: d.tipo_comprobante || '', fecha: d.fecha || '',
+                 proveedor: d.proveedor || '', importe: d.importe_total || '', moneda: (d.moneda || '').toUpperCase() };
+      }
+      ultimo = 'Gemini (' + modelos[mi] + ') respondió ' + c;
+      if (c === 503 || c === 429 || c === 500) { Utilities.sleep(1200 * (intento + 1)); continue; }
+      break;
+    }
   }
+  return { ok: false, error: ultimo + '. Probá de nuevo o cargá los datos a mano.' };
+}
 
-  const lock = LockService.getScriptLock(); // un solo Drive (el del dueño): candado global
+
+// ─────────────────────────────────────────────────────────────────────────
+//  4) Guardar el gasto
+//     payload = { tipo, titular, iniciales, cco, cuenta, descripcion, quienGasto,
+//                 comentario, tipoComprobante, fecha, proveedor, importe, moneda,
+//                 imagenBase64, mimeType }
+// ─────────────────────────────────────────────────────────────────────────
+function procesarTicket(p) {
+  const lock = LockService.getScriptLock();
   lock.waitLock(30000);
-
   try {
-    const carpetaMes = getCarpetaMes_();                    // Rendiciones / Mes
-    const ss = getMonthSpreadsheet_(carpetaMes);            // planilla del mes
-    const hoja = getOrCreateHojaTitular_(ss, titular);      // solapa del titular
-    const carpetaTitular = getOrCreateSubcarpeta_(carpetaMes, titular); // comprobantes del titular
+    const esTarjeta = (p.tipo === 'tarjeta');
+    const root = DriveApp.getFolderById(CONFIG.ROOT_FOLDER_ID);
+    let carpetaDestino, ssName, solapa;
+
+    if (esTarjeta) {
+      const ini = limpiarNombre_(p.iniciales || '');
+      if (!ini) return { ok: false, error: 'Elegí un titular de tarjeta.' };
+      carpetaDestino = getOrCreateSubcarpeta_(getOrCreateSubcarpeta_(root, CONFIG.SUB_TARJETA), ini);
+      ssName = 'Rendicion ' + ini;
+      solapa = solapaParaFecha_(p.fecha);
+    } else {
+      const cco = String(p.cco || '').trim();
+      if (!cco) return { ok: false, error: 'Elegí el evento (CCO).' };
+      carpetaDestino = getOrCreateSubcarpeta_(getOrCreateSubcarpeta_(root, CONFIG.SUB_CAJA), limpiarNombre_(cco));
+      ssName = 'Rendicion ' + limpiarNombre_(cco);
+      solapa = CONFIG.SOLAPA_CAJA;
+    }
+
+    const ss = getSpreadsheetIn_(carpetaDestino, ssName);
+    const hoja = getOrCreateHoja_(ss, solapa);
+    const carpetaImg = getOrCreateSubcarpeta_(carpetaDestino, CONFIG.CARPETA_IMAGENES);
 
     const orden = siguienteNumeroDeOrden_(hoja);
     const ordenTxt = String(orden).padStart(4, '0');
 
-    let datos = { fecha: '', proveedor: '', importe_total: 0, moneda: '' };
     let estado = 'OK';
-    try {
-      datos = leerTicketConGemini_(payload.imagenBase64, payload.mimeType);
-    } catch (err) {
-      estado = 'Revisar (Gemini): ' + err.message;
-    }
-    if (!datos.importe_total) estado = agregarAviso_(estado, 'sin importe');
-    if (datos.moneda && datos.moneda.toUpperCase() !== CONFIG.MONEDA_ESPERADA) {
-      estado = agregarAviso_(estado, 'moneda ' + datos.moneda);
-    }
+    if (solapa === 'Sin vencimiento') estado = agregarAviso_(estado, 'fecha fuera de los vencimientos');
+    if (!p.importe) estado = agregarAviso_(estado, 'sin importe');
 
-    let linkImagen = '';
+    // Guardar imagen o, si es carga manual, un texto con los datos.
+    let link = '';
+    const nombreBase = ordenTxt + (p.proveedor ? ' - ' + limpiarNombre_(p.proveedor) : ' - gasto');
     try {
-      const nombreArchivo = ordenTxt + (datos.proveedor ? ' - ' + limpiarNombre_(datos.proveedor) : ' - ticket');
-      linkImagen = guardarImagenEnDrive_(carpetaTitular, payload.imagenBase64, payload.mimeType, nombreArchivo);
-    } catch (err) {
-      estado = agregarAviso_(estado, 'no se guardó la imagen: ' + err.message);
+      if (p.imagenBase64) {
+        link = guardarImagen_(carpetaImg, p.imagenBase64, p.mimeType, nombreBase);
+      } else {
+        link = guardarTextoManual_(carpetaImg, nombreBase, p);
+        estado = agregarAviso_(estado, 'sin comprobante (carga manual)');
+      }
+    } catch (e) {
+      estado = agregarAviso_(estado, 'no se guardó el archivo: ' + e.message);
     }
 
     const cargadoPor = Session.getActiveUser().getEmail() || '';
+    const monedaTxt = (p.moneda || CONFIG.MONEDA_ESPERADA).toUpperCase();
     hoja.appendRow([
-      orden,
-      datos.fecha || '',
-      payload.cco || '',
-      payload.cuenta || '',
-      payload.descripcion || '',
-      datos.proveedor || '',
-      datos.importe_total || '',
-      datos.moneda || '',
-      linkImagen,
-      new Date(),
-      cargadoPor,
-      estado
+      orden, p.fecha || '', p.tipoComprobante || '', p.proveedor || '', parseImporte_(p.importe), monedaTxt,
+      p.titular || '', p.cco || '', p.cuenta || '', p.descripcion || '', p.quienGasto || '', p.comentario || '',
+      link, cargadoPor, new Date(), estado
     ]);
-
     const fila = hoja.getLastRow();
-    const codigoMoneda = (datos.moneda || CONFIG.MONEDA_ESPERADA).toUpperCase();
-    hoja.getRange(fila, COL_IMPORTE).setNumberFormat('"' + codigoMoneda + ' "#,##0.00');
+    hoja.getRange(fila, COL_IMPORTE).setNumberFormat('"' + monedaTxt + ' "#,##0.00');
 
     return {
-      ok: true,
-      titular: titular,
-      orden: ordenTxt,
-      fecha: datos.fecha,
-      proveedor: datos.proveedor,
-      importe: datos.importe_total,
-      moneda: datos.moneda,
-      estado: estado,
-      carpetaUrl: carpetaTitular.getUrl(),
-      carpetaRuta: rutaCarpeta_(carpetaTitular),
-      hojaUrl: ss.getUrl()
+      ok: true, orden: ordenTxt, tipo: p.tipo, titular: p.titular || '', cco: p.cco || '',
+      solapa: solapa, proveedor: p.proveedor || '', importe: p.importe || '', moneda: monedaTxt,
+      estado: estado, carpetaUrl: carpetaDestino.getUrl(), hojaUrl: ss.getUrl(),
+      carpetaRuta: rutaCarpeta_(carpetaDestino)
     };
-
-  } catch (err) {
-    return { ok: false, error: err.message };
+  } catch (e) {
+    return { ok: false, error: e.message };
   } finally {
     lock.releaseLock();
   }
@@ -207,169 +272,98 @@ function procesarTicket(payload) {
 
 
 // ─────────────────────────────────────────────────────────────────────────
-//  Estructura por mes en la Unidad compartida
+//  Helpers de Drive / Sheets
 // ─────────────────────────────────────────────────────────────────────────
-
-const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-               'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-
-function etiquetaMes_() {
-  const tz = Session.getScriptTimeZone() || 'America/Argentina/Buenos_Aires';
-  const d = new Date();
-  const anio = Utilities.formatDate(d, tz, 'yyyy');
-  const mm = Utilities.formatDate(d, tz, 'MM');
-  return anio + '-' + mm + ' ' + MESES[Number(mm) - 1];
-}
-
 function getOrCreateSubcarpeta_(padre, nombre) {
   const it = padre.getFoldersByName(nombre);
   return it.hasNext() ? it.next() : padre.createFolder(nombre);
 }
 
-function getCarpetaMes_() {
-  const root = DriveApp.getFolderById(CONFIG.ROOT_FOLDER_ID);
-  return getOrCreateSubcarpeta_(root, etiquetaMes_());
-}
-
-function getMonthSpreadsheet_(carpetaMes) {
-  const nombre = CONFIG.RENDICION_NOMBRE + ' ' + etiquetaMes_();
-  const it = carpetaMes.getFilesByName(nombre);
+function getSpreadsheetIn_(folder, nombre) {
+  const it = folder.getFilesByName(nombre);
   if (it.hasNext()) return SpreadsheetApp.open(it.next());
   const ss = SpreadsheetApp.create(nombre);
-  DriveApp.getFileById(ss.getId()).moveTo(carpetaMes); // llevarla a la Unidad compartida
+  DriveApp.getFileById(ss.getId()).moveTo(folder);
   return ss;
 }
 
-// Solapa (pestaña) del titular, con encabezados. Borra la "Hoja 1" vacía que confunde.
-function getOrCreateHojaTitular_(ss, titular) {
-  let hoja = ss.getSheetByName(titular);
-  if (!hoja) hoja = ss.insertSheet(titular);
+function getOrCreateHoja_(ss, nombre) {
+  let hoja = ss.getSheetByName(nombre);
+  if (!hoja) {
+    const primera = ss.getSheets()[0];
+    if (primera && primera.getLastRow() === 0 && ['Hoja 1', 'Hoja1', 'Sheet1'].indexOf(primera.getName()) > -1) {
+      primera.setName(nombre); hoja = primera;
+    } else {
+      hoja = ss.insertSheet(nombre);
+    }
+  }
   if (hoja.getLastRow() === 0) {
     hoja.appendRow(ENCABEZADOS);
     hoja.getRange(1, 1, 1, ENCABEZADOS.length).setFontWeight('bold');
     hoja.setFrozenRows(1);
-    hoja.getRange('G2:G').setNumberFormat('"ARS"#,##0.00');
+    hoja.getRange(2, COL_IMPORTE, hoja.getMaxRows() - 1, 1).setNumberFormat('"ARS "#,##0.00');
   }
-  borrarHojaPorDefecto_(ss, titular);
   return hoja;
 }
-
-function borrarHojaPorDefecto_(ss, titular) {
-  const defaults = ['Hoja 1', 'Hoja1', 'Sheet1', 'Sheet 1'];
-  const hojas = ss.getSheets();
-  if (hojas.length <= 1) return;
-  hojas.forEach(function (s) {
-    if (s.getName() !== titular && defaults.indexOf(s.getName()) > -1 && s.getLastRow() === 0) {
-      if (ss.getSheets().length > 1) ss.deleteSheet(s);
-    }
-  });
-}
-
-
-// ─────────────────────────────────────────────────────────────────────────
-//  Helpers
-// ─────────────────────────────────────────────────────────────────────────
 
 function siguienteNumeroDeOrden_(hoja) {
   const ultima = hoja.getLastRow();
   if (ultima < 2) return 1;
-  const numeros = hoja.getRange(2, 1, ultima - 1, 1).getValues();
+  const nums = hoja.getRange(2, 1, ultima - 1, 1).getValues();
   let max = 0;
-  numeros.forEach(function (f) {
-    const n = parseInt(f[0], 10);
-    if (!isNaN(n) && n > max) max = n;
-  });
+  nums.forEach(function (f) { const n = parseInt(f[0], 10); if (!isNaN(n) && n > max) max = n; });
   return max + 1;
 }
 
-function guardarImagenEnDrive_(carpeta, base64, mimeType, nombre) {
+function guardarImagen_(carpeta, base64, mimeType, nombre) {
   const ext = (mimeType && mimeType.indexOf('png') > -1) ? '.png' : '.jpg';
-  const bytes = Utilities.base64Decode(base64);
-  const blob = Utilities.newBlob(bytes, mimeType || 'image/jpeg', nombre + ext);
+  const blob = Utilities.newBlob(Utilities.base64Decode(base64), mimeType || 'image/jpeg', nombre + ext);
   return carpeta.createFile(blob).getUrl();
 }
 
-function leerTicketConGemini_(base64, mimeType) {
-  const prompt =
-    'Sos un asistente que extrae datos de comprobantes (tickets, facturas, recibos), ' +
-    'incluso si es una captura de pantalla o una foto torcida. ' +
-    'Interpretá el significado, no la palabra exacta (el total puede aparecer como ' +
-    '"Total", "Importe", "Monto", "Total a pagar", "Neto", etc.). ' +
-    'Devolvé SOLO los datos que puedas leer con seguridad:\n' +
-    '- fecha: la fecha del comprobante en formato DD/MM/AAAA.\n' +
-    '- proveedor: el nombre del comercio o empresa que emite el comprobante.\n' +
-    '- importe_total: el monto TOTAL final a pagar, solo el número (sin símbolos ni separadores de miles; usá punto para los decimales).\n' +
-    '- moneda: código como ARS, USD, EUR, etc.\n' +
-    'Si algún dato no aparece, devolvé cadena vacía (o 0 para el importe).';
-
-  const payload = {
-    contents: [{
-      parts: [
-        { text: prompt },
-        { inline_data: { mime_type: mimeType || 'image/jpeg', data: base64 } }
-      ]
-    }],
-    generationConfig: {
-      temperature: 0,
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: 'OBJECT',
-        properties: {
-          fecha:         { type: 'STRING' },
-          proveedor:     { type: 'STRING' },
-          importe_total: { type: 'NUMBER' },
-          moneda:        { type: 'STRING' }
-        }
-      }
-    }
-  };
-
-  const opciones = {
-    method: 'post', contentType: 'application/json',
-    payload: JSON.stringify(payload), muteHttpExceptions: true
-  };
-
-  const key = getGeminiApiKey_();
-  const base = 'https://generativelanguage.googleapis.com/v1beta/models/';
-  const modelos = [CONFIG.GEMINI_MODEL, CONFIG.GEMINI_MODEL_FALLBACK];
-  let ultimoError = 'Gemini no respondió';
-
-  for (var mi = 0; mi < modelos.length; mi++) {
-    const url = base + modelos[mi] + ':generateContent?key=' + key;
-    for (var intento = 0; intento < 3; intento++) {
-      const respuesta = UrlFetchApp.fetch(url, opciones);
-      const codigo = respuesta.getResponseCode();
-      if (codigo === 200) {
-        const json = JSON.parse(respuesta.getContentText());
-        return JSON.parse(json.candidates[0].content.parts[0].text);
-      }
-      ultimoError = 'Gemini (' + modelos[mi] + ') respondió ' + codigo;
-      if (codigo === 503 || codigo === 429 || codigo === 500) {
-        Utilities.sleep(1200 * (intento + 1));
-        continue;
-      }
-      break;
-    }
-  }
-  throw new Error(ultimoError + '. Estaba saturado; probá de nuevo en unos segundos.');
+function guardarTextoManual_(carpeta, nombre, p) {
+  const txt =
+    'CARGA MANUAL (sin comprobante)\n' +
+    'Tipo: ' + (p.tipoComprobante || '-') + '\n' +
+    'Fecha: ' + (p.fecha || '-') + '\n' +
+    'Proveedor: ' + (p.proveedor || '-') + '\n' +
+    'Importe: ' + (p.importe || '-') + ' ' + (p.moneda || '') + '\n' +
+    'Quién hizo el gasto: ' + (p.quienGasto || '-') + '\n' +
+    'Comentario: ' + (p.comentario || '-') + '\n';
+  return carpeta.createFile(nombre + ' (manual).txt', txt, 'text/plain').getUrl();
 }
 
-function agregarAviso_(estado, aviso) {
-  if (estado === 'OK') return 'Revisar: ' + aviso;
-  return estado + '; ' + aviso;
+
+// ─────────────────────────────────────────────────────────────────────────
+//  Helpers varios
+// ─────────────────────────────────────────────────────────────────────────
+function parseFecha_(s) {
+  const m = String(s).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!m) return null;
+  return new Date(parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10));
 }
+function diaFin_(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59); }
+
+// Convierte "10.000,00" / "10000.00" / 10000 a número.
+function parseImporte_(v) {
+  if (typeof v === 'number') return v;
+  let s = String(v || '').replace(/[^\d.,-]/g, '');
+  if (s === '') return '';
+  if (s.indexOf('.') > -1 && s.indexOf(',') > -1) s = s.replace(/\./g, '').replace(',', '.'); // es-AR
+  else if (s.indexOf(',') > -1) s = s.replace(',', '.');
+  const n = parseFloat(s);
+  return isNaN(n) ? '' : n;
+}
+
+function agregarAviso_(estado, aviso) { return estado === 'OK' ? ('Revisar: ' + aviso) : (estado + '; ' + aviso); }
 
 function rutaCarpeta_(folder) {
   const partes = [folder.getName()];
   let padres = folder.getParents();
-  while (padres.hasNext()) {
-    const p = padres.next();
-    partes.unshift(p.getName());
-    padres = p.getParents();
-  }
+  while (padres.hasNext()) { const p = padres.next(); partes.unshift(p.getName()); padres = p.getParents(); }
   return partes.join(' ▸ ');
 }
 
-function limpiarNombre_(texto) {
-  return String(texto).replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+function limpiarNombre_(t) {
+  return String(t).replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
 }
