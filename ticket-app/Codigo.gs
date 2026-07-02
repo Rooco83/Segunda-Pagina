@@ -62,6 +62,7 @@ function getGeminiApiKey_() {
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('Rendiciones Venue')
+    .setFaviconUrl('https://raw.githubusercontent.com/Rooco83/Segunda-Pagina/claude/mobile-google-sheets-automation-64txcn/ticket-app/icon_tickets_512.png')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1')
     .addMetaTag('mobile-web-app-capable', 'yes');
 }
