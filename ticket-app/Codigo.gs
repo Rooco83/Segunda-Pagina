@@ -37,7 +37,7 @@ const CONFIG = {
 // TARJETA: incluye TITULAR. CAJA CHICA: sin TITULAR. Ninguna lleva "CARGADO POR".
 const ENC_TARJETA = [
   'ORDEN', 'FECHA', 'TIPO COMPROBANTE', 'PROVEEDOR', 'IMPORTE', 'MONEDA', 'TITULAR',
-  'EVENTO (CCO)', 'CUENTA', 'DESCRIPCION', 'QUIEN HIZO EL GASTO', 'COMENTARIO',
+  'EVENTO (CCO)', 'CUENTA', 'QUIEN HIZO EL GASTO', 'COMENTARIO',
   'IMAGEN', 'CARGADO', 'ESTADO'
 ];
 const ENC_CAJA = [
@@ -270,7 +270,7 @@ function procesarTicket(p) {
     const monedaTxt = (p.moneda || CONFIG.MONEDA_ESPERADA).toUpperCase();
     const comun = [orden, p.fecha || '', p.tipoComprobante || '', p.proveedor || '', parseImporte_(p.importe), monedaTxt];
     const valores = esTarjeta
-      ? comun.concat([p.titular || '', p.cco || '', p.cuenta || '', p.descripcion || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado])
+      ? comun.concat([p.titular || '', p.cco || '', p.cuenta || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado])
       : comun.concat([p.cco || '', p.cuenta || '', p.descripcion || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado]);
     agregarFila_(hoja, valores, monedaTxt);
 

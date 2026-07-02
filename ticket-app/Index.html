@@ -36,7 +36,12 @@
     textarea{resize:vertical;min-height:52px;}
     .hint{font-size:.8rem;color:#6b7280;margin-top:4px;}
     .upload{border:2px dashed #aeb6bf;border-radius:14px;padding:16px;text-align:center;background:#fff;margin-top:6px;}
-    .upload input[type=file]{width:auto;border:none;}
+    .upbtns{display:flex;gap:10px;flex-wrap:wrap;}
+    .upbtn{flex:1 1 130px;min-width:0;padding:15px 10px;border-radius:12px;border:none;font-family:inherit;font-weight:700;font-size:.98rem;cursor:pointer;}
+    .upbtn.cam{background:var(--navy);color:#fff;}
+    .upbtn.gal{background:#fff;color:var(--navy);border:1.5px solid var(--navy);}
+    .upbtn:active{transform:scale(.98);}
+    .fname{font-size:.85rem;color:#0a7d34;font-weight:700;margin-top:10px;word-break:break-word;}
     .linkbtn{background:none;border:none;color:var(--orange);font-weight:700;font-family:inherit;cursor:pointer;font-size:.9rem;text-decoration:underline;margin-top:8px;}
     .datos{background:#f8fafc;border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:12px;display:none;}
     .datos h4{margin:0 0 4px;color:var(--navy);font-size:.95rem;}
@@ -92,7 +97,7 @@
 
   <!-- 3) TARJETA -->
   <section id="form-t" class="screen">
-    <header><img data-logo="1" alt="Venue"><div><div class="htxt">Rendición · Tarjeta</div><div class="hsub">Venue Brand Experience</div></div><button class="back" onclick="go('home')">✕</button></header>
+    <header><img data-logo="1" alt="Venue"><div><div class="htxt">Rendición · Tarjeta</div><div class="hsub">Venue Brand Experience</div></div><button class="back" onclick="cerrar('t')">✕</button></header>
     <main>
       <label>Elegí tu tarjeta</label>
       <select id="t_titular"><option value="">Titular…</option></select>
@@ -109,8 +114,13 @@
 
       <label>Subí tu comprobante</label>
       <div class="upload">
-        <input type="file" id="t_foto" accept="image/*" onchange="onFile('t')">
-        <div class="hint">Sacá una foto o elegí de la galería.</div>
+        <input type="file" id="t_foto" accept="image/*" capture="environment" onchange="onFile('t',this)" hidden>
+        <input type="file" id="t_foto_gal" accept="image/*" onchange="onFile('t',this)" hidden>
+        <div class="upbtns">
+          <button type="button" class="upbtn cam" onclick="document.getElementById('t_foto').click()">📷 Sacar foto</button>
+          <button type="button" class="upbtn gal" onclick="document.getElementById('t_foto_gal').click()">🖼️ Galería</button>
+        </div>
+        <div class="fname" id="t_fname"></div>
         <button class="linkbtn" onclick="manual('t')">No tengo comprobante → cargar a mano</button>
       </div>
       <div id="t_datos" class="datos">
@@ -138,7 +148,7 @@
 
   <!-- 4) CAJA CHICA -->
   <section id="form-c" class="screen">
-    <header><img data-logo="1" alt="Venue"><div><div class="htxt">Rendición · Caja Chica</div><div class="hsub">Venue Brand Experience</div></div><button class="back" onclick="go('home')">✕</button></header>
+    <header><img data-logo="1" alt="Venue"><div><div class="htxt">Rendición · Caja Chica</div><div class="hsub">Venue Brand Experience</div></div><button class="back" onclick="cerrar('c')">✕</button></header>
     <main>
       <label>Elegí el evento</label>
       <div class="combo"><input id="c_cco" placeholder="Buscar evento (CCO)…" autocomplete="off"><div id="c_lista" class="lista"></div></div>
@@ -155,8 +165,13 @@
 
       <label>Subí tu comprobante</label>
       <div class="upload">
-        <input type="file" id="c_foto" accept="image/*" onchange="onFile('c')">
-        <div class="hint">Sacá una foto o elegí de la galería.</div>
+        <input type="file" id="c_foto" accept="image/*" capture="environment" onchange="onFile('c',this)" hidden>
+        <input type="file" id="c_foto_gal" accept="image/*" onchange="onFile('c',this)" hidden>
+        <div class="upbtns">
+          <button type="button" class="upbtn cam" onclick="document.getElementById('c_foto').click()">📷 Sacar foto</button>
+          <button type="button" class="upbtn gal" onclick="document.getElementById('c_foto_gal').click()">🖼️ Galería</button>
+        </div>
+        <div class="fname" id="c_fname"></div>
         <button class="linkbtn" onclick="manual('c')">No tengo comprobante → cargar a mano</button>
       </div>
       <div id="c_datos" class="datos">
@@ -236,6 +251,14 @@
       document.getElementById(id).classList.add('active');
       window.scrollTo(0,0);
     }
+    // Cerrar con la X: borra TODO lo cargado y vuelve al inicio.
+    function cerrar(p){
+      resetForm(p);
+      if(p==='t'){ document.getElementById('t_titular').value=''; }
+      document.getElementById(p+'_cuenta').value='';
+      var el=document.getElementById(p+'_quien'); if(el) el.value='';
+      go('home');
+    }
     // Fallback: si en 6s no cargó, igual muestra el inicio
     setTimeout(function(){ if(document.getElementById('splash').classList.contains('active')) go('home'); }, 6000);
 
@@ -261,8 +284,9 @@
     }
 
     // ── Foto → Gemini ────────────────────────────────────────────────
-    function onFile(p){
-      var f=document.getElementById(p+'_foto').files[0]; if(!f) return;
+    function onFile(p,input){
+      var f=input.files[0]; if(!f) return;
+      document.getElementById(p+'_fname').textContent='✓ '+f.name;
       var rd=new FileReader();
       rd.onload=function(ev){
         var img=new Image();
@@ -291,11 +315,17 @@
     function set(id,v){ document.getElementById(id).value = (v===undefined||v===null)?'':v; }
     function fmtAR(v){ if(v===''||v===null||v===undefined) return ''; var n=Number(v); if(isNaN(n)) return String(v); return n.toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:2}); }
     function abrirDatos(p){ document.getElementById(p+'_datos').style.display='block'; }
-    function manual(p){ st[p].img=null; st[p].mime=null; document.getElementById(p+'_foto').value=''; abrirDatos(p); document.getElementById(p+'_imp').focus(); }
+    function limpiarFoto(p){
+      var a=document.getElementById(p+'_foto'); if(a) a.value='';
+      var b=document.getElementById(p+'_foto_gal'); if(b) b.value='';
+      var fn=document.getElementById(p+'_fname'); if(fn) fn.textContent='';
+      st[p].img=null; st[p].mime=null;
+    }
+    function manual(p){ limpiarFoto(p); abrirDatos(p); document.getElementById(p+'_imp').focus(); }
 
     // ── Guardar ──────────────────────────────────────────────────────
     var pend=null; // {p, accion} pendiente cuando falta comprobante
-    document.getElementById('mSubir').onclick=function(){ cerrarModal(); if(pend) document.getElementById(pend.p+'_foto').click(); };
+    document.getElementById('mSubir').onclick=function(){ cerrarModal(); if(pend) document.getElementById(pend.p+'_foto_gal').click(); };
     document.getElementById('mManual').onclick=function(){ cerrarModal(); if(pend){ manual(pend.p); } };
     function cerrarModal(){ document.getElementById('modal').classList.remove('show'); }
 
@@ -348,8 +378,7 @@
       document.getElementById(p+'_cco').dataset.val='';
       document.getElementById(p+'_ccoOk').style.display='none';
       document.getElementById(p+'_datos').style.display='none';
-      document.getElementById(p+'_foto').value='';
-      st[p].img=null; st[p].mime=null;
+      limpiarFoto(p);
       // el titular (tarjeta) y la cuenta se dejan elegidos para cargar rápido
       window.scrollTo(0,0);
     }
