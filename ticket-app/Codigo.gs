@@ -364,28 +364,28 @@ function agregarFila_(hoja, valores, monedaTxt) {
     .setBorder(true, true, true, true, true, true, '#CBD2D9', SpreadsheetApp.BorderStyle.SOLID);
   hoja.getRange(fila, COL_IMPORTE).setNumberFormat('"' + monedaTxt + ' "#,##0.00');
 
-  // 3) Monedas presentes en los datos (ARS primero, después alfabético).
+  // 3) Sumar importes por moneda (calculado acá, sin fórmula, para evitar problemas de idioma).
   const dataFirst = FIRST_DATA_ROW, dataUlt = fila;
-  const monVals = hoja.getRange(dataFirst, COL_MONEDA, dataUlt - dataFirst + 1, 1).getValues();
-  const monedas = [];
-  monVals.forEach(function (r) { const m = String(r[0]).trim(); if (m && monedas.indexOf(m) === -1) monedas.push(m); });
-  monedas.sort(function (a, b) {
+  const region = hoja.getRange(dataFirst, COL_IMPORTE, dataUlt - dataFirst + 1, 2).getValues(); // [importe, moneda]
+  const sumas = {}, orden = [];
+  region.forEach(function (r) {
+    const m = String(r[1]).trim();
+    if (!m) return;
+    if (!(m in sumas)) { sumas[m] = 0; orden.push(m); }
+    sumas[m] += Number(r[0]) || 0;
+  });
+  orden.sort(function (a, b) {
     if (a === CONFIG.MONEDA_ESPERADA) return -1;
     if (b === CONFIG.MONEDA_ESPERADA) return 1;
     return a < b ? -1 : (a > b ? 1 : 0);
   });
 
-  // 4) Un TOTAL por moneda (SUMIF sobre la columna de moneda).
-  const impCol = columnaLetra_(COL_IMPORTE), monCol = columnaLetra_(COL_MONEDA);
-  const rangoMon = monCol + dataFirst + ':' + monCol + dataUlt;
-  const rangoImp = impCol + dataFirst + ':' + impCol + dataUlt;
-  monedas.forEach(function (m, idx) {
+  // 4) Escribir un TOTAL por moneda.
+  orden.forEach(function (m, idx) {
     const r = dataUlt + 1 + idx;
     hoja.getRange(r, 1, 1, n).setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setVerticalAlignment('middle');
     hoja.getRange(r, 1).setValue('TOTAL ' + m);
-    hoja.getRange(r, COL_IMPORTE)
-      .setFormula('=SUMIF(' + rangoMon + ',"' + m + '",' + rangoImp + ')')
-      .setNumberFormat('"' + m + ' "#,##0.00');
+    hoja.getRange(r, COL_IMPORTE).setValue(sumas[m]).setNumberFormat('"' + m + ' "#,##0.00');
   });
   return fila;
 }
