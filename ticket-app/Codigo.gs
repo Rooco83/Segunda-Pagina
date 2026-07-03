@@ -53,6 +53,7 @@ const CLR_NAVY = '#00263E';
 const CLR_ORANGE = '#F15A24';
 const CLR_GRIS = '#F1F3F5';   // fondo gris clarito de las filas de datos
 const CLR_TEXTO = '#212721';  // texto oscuro de los datos
+const CLR_ROJO_SUAVE = '#F8D7DA'; // fondo rojo suave para el estado "a revisar"
 // Ancho (px) por nombre de columna
 const ANCHO_COL = {
   'ORDEN': 58, 'FECHA': 95, 'TIPO COMPROBANTE': 120, 'PROVEEDOR': 150, 'IMPORTE': 115,
@@ -145,14 +146,17 @@ function leerVtos_() {
   return lista;
 }
 
-// Devuelve la solapa (etiqueta del VTO) donde cae una fecha DD/MM/AAAA.
+// Devuelve { solapa, enVto } para una fecha DD/MM/AAAA.
+// Si cae dentro de un vencimiento → esa etiqueta. Si no → el mes/año del gasto (para revisar).
+const MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+function nombreMesAnio_(d) { return MESES_ES[d.getMonth()] + ' ' + d.getFullYear(); }
 function solapaParaFecha_(fechaStr) {
   const f = parseFecha_(fechaStr) || new Date();
   const vtos = leerVtos_();
   for (var i = 0; i < vtos.length; i++) {
-    if (f >= vtos[i].desde && f <= diaFin_(vtos[i].hasta)) return vtos[i].etiqueta;
+    if (f >= vtos[i].desde && f <= diaFin_(vtos[i].hasta)) return { solapa: vtos[i].etiqueta, enVto: true };
   }
-  return 'Sin vencimiento';
+  return { solapa: nombreMesAnio_(f), enVto: false };
 }
 
 
@@ -226,14 +230,16 @@ function procesarTicket(p) {
   try {
     const esTarjeta = (p.tipo === 'tarjeta');
     const root = DriveApp.getFolderById(CONFIG.ROOT_FOLDER_ID);
-    let carpetaDestino, ssName, solapa;
+    let carpetaDestino, ssName, solapa, fueraDeVto = false;
 
     if (esTarjeta) {
       const ini = limpiarNombre_(p.iniciales || '');
       if (!ini) return { ok: false, error: 'Elegí un titular de tarjeta.' };
       carpetaDestino = getOrCreateSubcarpeta_(getOrCreateSubcarpeta_(root, CONFIG.SUB_TARJETA), ini);
       ssName = 'Rendicion ' + ini;
-      solapa = solapaParaFecha_(p.fecha);
+      const info = solapaParaFecha_(p.fecha);
+      solapa = info.solapa;
+      fueraDeVto = !info.enVto;
     } else {
       const cco = String(p.cco || '').trim();
       if (!cco) return { ok: false, error: 'Elegí el evento (CCO).' };
@@ -251,7 +257,7 @@ function procesarTicket(p) {
     const ordenTxt = String(orden).padStart(4, '0');
 
     let estado = 'OK';
-    if (solapa === 'Sin vencimiento') estado = agregarAviso_(estado, 'fecha fuera de los vencimientos');
+    if (fueraDeVto) estado = agregarAviso_(estado, 'fecha fuera de los vencimientos');
     if (!p.importe) estado = agregarAviso_(estado, 'sin importe');
 
     // Guardar imagen o, si es carga manual, un texto con los datos.
@@ -273,7 +279,8 @@ function procesarTicket(p) {
     const valores = esTarjeta
       ? comun.concat([p.titular || '', p.cco || '', p.cuenta || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado])
       : comun.concat([p.cco || '', p.cuenta || '', p.descripcion || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado]);
-    agregarFila_(hoja, valores, monedaTxt);
+    const filaNueva = agregarFila_(hoja, valores, monedaTxt);
+    if (fueraDeVto) hoja.getRange(filaNueva, valores.length).setBackground(CLR_ROJO_SUAVE);
 
     return {
       ok: true, orden: ordenTxt, tipo: p.tipo, titular: p.titular || '', cco: p.cco || '',
