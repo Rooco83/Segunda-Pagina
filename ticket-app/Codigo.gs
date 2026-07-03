@@ -46,6 +46,7 @@ const ENC_CAJA = [
   'IMAGEN', 'CARGADO', 'ESTADO'
 ];
 const COL_IMPORTE = 5;      // columna E (IMPORTE) en ambos formatos
+const COL_MONEDA = 6;       // columna F (MONEDA) en ambos formatos
 const HEADER_ROW = 6;       // fila de encabezados
 const FIRST_DATA_ROW = 7;   // primera fila de datos / TOTAL inicial
 const CLR_NAVY = '#00263E';
@@ -331,31 +332,61 @@ function construirFormato_(hoja, nombreCtx, fechaCtx, headers) {
   hoja.getRange(HEADER_ROW, 1, 1, n).setValues([headers])
     .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setHorizontalAlignment('center');
 
-  hoja.getRange(FIRST_DATA_ROW, 1, 1, n).setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold');
-  hoja.getRange(FIRST_DATA_ROW, 1).setValue('TOTAL');
-  hoja.getRange(FIRST_DATA_ROW, COL_IMPORTE).setNumberFormat('"$ "#,##0.00');
-
   hoja.setFrozenRows(HEADER_ROW);
   // Anchos fijos + texto que se ajusta dentro de la celda (wrap)
   for (var i = 0; i < n; i++) hoja.setColumnWidth(i + 1, ANCHO_COL[headers[i]] || 120);
   hoja.getRange(HEADER_ROW, 1, hoja.getMaxRows() - HEADER_ROW + 1, n).setWrap(true);
 }
 
-// Inserta una fila de datos ANTES de la fila TOTAL (para que el TOTAL quede siempre abajo y sume).
+// Inserta una fila de datos y arma UN TOTAL por cada moneda presente (desglose por moneda).
 function agregarFila_(hoja, valores, monedaTxt) {
-  const totalRow = hoja.getLastRow();
-  hoja.insertRowsBefore(totalRow, 1);
-  const fila = totalRow;
-  hoja.getRange(fila, 1, 1, valores.length).setValues([valores]);
-  hoja.getRange(fila, 1, 1, valores.length)
+  const n = valores.length;
+  const last = hoja.getLastRow();
+
+  // 1) Borrar el bloque de TOTALES actual (filas con "TOTAL" en la col A, siempre al final).
+  let dataLast = FIRST_DATA_ROW - 1; // por defecto: todavía no hay datos
+  if (last >= FIRST_DATA_ROW) {
+    const colA = hoja.getRange(FIRST_DATA_ROW, 1, last - FIRST_DATA_ROW + 1, 1).getValues();
+    let firstTotal = 0;
+    for (var i = 0; i < colA.length; i++) {
+      if (String(colA[i][0]).indexOf('TOTAL') === 0) { firstTotal = FIRST_DATA_ROW + i; break; }
+    }
+    if (firstTotal) { hoja.deleteRows(firstTotal, last - firstTotal + 1); dataLast = firstTotal - 1; }
+    else { dataLast = last; }
+  }
+
+  // 2) Escribir la nueva fila de datos justo debajo de los datos existentes.
+  const fila = dataLast + 1;
+  hoja.getRange(fila, 1, 1, n).setValues([valores]);
+  hoja.getRange(fila, 1, 1, n)
     .setBackground(CLR_GRIS).setFontColor(CLR_TEXTO)
     .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true)
     .setBorder(true, true, true, true, true, true, '#CBD2D9', SpreadsheetApp.BorderStyle.SOLID);
   hoja.getRange(fila, COL_IMPORTE).setNumberFormat('"' + monedaTxt + ' "#,##0.00');
 
-  const nuevoTotal = hoja.getLastRow();
-  const col = columnaLetra_(COL_IMPORTE);
-  hoja.getRange(nuevoTotal, COL_IMPORTE).setFormula('=SUM(' + col + FIRST_DATA_ROW + ':' + col + (nuevoTotal - 1) + ')');
+  // 3) Monedas presentes en los datos (ARS primero, después alfabético).
+  const dataFirst = FIRST_DATA_ROW, dataUlt = fila;
+  const monVals = hoja.getRange(dataFirst, COL_MONEDA, dataUlt - dataFirst + 1, 1).getValues();
+  const monedas = [];
+  monVals.forEach(function (r) { const m = String(r[0]).trim(); if (m && monedas.indexOf(m) === -1) monedas.push(m); });
+  monedas.sort(function (a, b) {
+    if (a === CONFIG.MONEDA_ESPERADA) return -1;
+    if (b === CONFIG.MONEDA_ESPERADA) return 1;
+    return a < b ? -1 : (a > b ? 1 : 0);
+  });
+
+  // 4) Un TOTAL por moneda (SUMIF sobre la columna de moneda).
+  const impCol = columnaLetra_(COL_IMPORTE), monCol = columnaLetra_(COL_MONEDA);
+  const rangoMon = monCol + dataFirst + ':' + monCol + dataUlt;
+  const rangoImp = impCol + dataFirst + ':' + impCol + dataUlt;
+  monedas.forEach(function (m, idx) {
+    const r = dataUlt + 1 + idx;
+    hoja.getRange(r, 1, 1, n).setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setVerticalAlignment('middle');
+    hoja.getRange(r, 1).setValue('TOTAL ' + m);
+    hoja.getRange(r, COL_IMPORTE)
+      .setFormula('=SUMIF(' + rangoMon + ',"' + m + '",' + rangoImp + ')')
+      .setNumberFormat('"' + m + ' "#,##0.00');
+  });
   return fila;
 }
 
@@ -366,11 +397,15 @@ function columnaLetra_(num) {
 }
 
 function siguienteNumeroDeOrden_(hoja) {
-  const totalRow = hoja.getLastRow();
-  if (totalRow <= FIRST_DATA_ROW) return 1; // aún no hay datos (TOTAL en la primera fila de datos)
-  const vals = hoja.getRange(FIRST_DATA_ROW, 1, totalRow - FIRST_DATA_ROW, 1).getValues();
+  const last = hoja.getLastRow();
+  if (last < FIRST_DATA_ROW) return 1; // aún no hay datos
+  const vals = hoja.getRange(FIRST_DATA_ROW, 1, last - FIRST_DATA_ROW + 1, 1).getValues();
   let max = 0;
-  vals.forEach(function (f) { const nn = parseInt(f[0], 10); if (!isNaN(nn) && nn > max) max = nn; });
+  vals.forEach(function (f) {
+    if (String(f[0]).indexOf('TOTAL') === 0) return; // saltear filas de TOTAL por moneda
+    const nn = parseInt(f[0], 10);
+    if (!isNaN(nn) && nn > max) max = nn;
+  });
   return max + 1;
 }
 
