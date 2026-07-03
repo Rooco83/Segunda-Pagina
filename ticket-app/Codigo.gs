@@ -135,7 +135,7 @@ function leerVtos_() {
   const vals = hoja.getRange(1, 1, hoja.getLastRow(), 2).getValues();
   const lista = [];
   vals.forEach(function (f) {
-    const etiqueta = String(f[0]).trim();
+    const etiqueta = etiquetaVto_(f[0]);
     const rango = String(f[1]).trim();
     const fechas = rango.match(/(\d{1,2}\/\d{1,2}\/\d{4}).*?(\d{1,2}\/\d{1,2}\/\d{4})/);
     if (etiqueta && fechas) {
@@ -150,6 +150,13 @@ function leerVtos_() {
 // Si cae dentro de un vencimiento → esa etiqueta. Si no → el mes/año del gasto (para revisar).
 const MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 function nombreMesAnio_(d) { return MESES_ES[d.getMonth()] + ' ' + d.getFullYear(); }
+// Normaliza la etiqueta del VTO: si viene como fecha (celda de fecha o "dd/mm/aaaa") la pasa a "Mes Año".
+function etiquetaVto_(v) {
+  if (v instanceof Date) return nombreMesAnio_(v);
+  const s = String(v).trim();
+  const f = parseFecha_(s);
+  return f ? nombreMesAnio_(f) : s;
+}
 function solapaParaFecha_(fechaStr) {
   const f = parseFecha_(fechaStr) || new Date();
   const vtos = leerVtos_();
