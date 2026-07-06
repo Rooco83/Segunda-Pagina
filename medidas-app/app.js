@@ -84,7 +84,7 @@ const App = (() => {
       okTxt: 'Eliminar',
       peligro: true
     };
-    if (Ajustes.url) {
+    if (Drive.activo()) {
       cfg.check = {
         txt: `Borrar también la carpeta «${p.nombre}» de tu Drive (si no, queda guardada ahí)`,
         def: sincronizado
@@ -94,7 +94,7 @@ const App = (() => {
     if (!r.ok) return;
 
     await DB.borrarProyecto(p.id);
-    if (r.check && Ajustes.url) {
+    if (r.check && Drive.activo()) {
       try {
         await Drive.borrarProyectoEnDrive(p.nombre);
         toast('Proyecto eliminado de la app y de Drive');
@@ -158,8 +158,9 @@ const App = (() => {
       const card = document.createElement('button');
       card.className = 'proj-card';
       const ultima = fotos[fotos.length - 1];
-      const thumb = ultima
-        ? `<img class="proj-thumb" src="${urlDe(ultima.blobFinal || ultima.blobOriginal)}" alt="">`
+      const blobUlt = ultima && (ultima.thumb || ultima.blobFinal || ultima.blobOriginal);
+      const thumb = blobUlt
+        ? `<img class="proj-thumb" src="${urlDe(blobUlt)}" alt="">`
         : `<span class="proj-thumb">${p.nombre.charAt(0).toUpperCase()}</span>`;
       card.innerHTML = `${thumb}<span><b>${escapar(p.nombre)}</b>
         <small>${fotos.length} foto${fotos.length === 1 ? '' : 's'} · ${fecha(p.creado)}</small></span>
@@ -240,7 +241,8 @@ const App = (() => {
       card.className = 'foto-card';
       card.dataset.fotoId = f.id;
       const [cls, txt] = BADGES[f.estadoDrive] || BADGES.local;
-      card.innerHTML = `<img src="${urlDe(f.blobFinal || f.blobOriginal)}" alt="">
+      const blobF = f.thumb || f.blobFinal || f.blobOriginal;
+      card.innerHTML = `${blobF ? `<img src="${urlDe(blobF)}" alt="">` : ''}
         <span class="badge ${cls}">${txt}</span>`;
       instalarLongPress(card, () => Editor.abrir(f.id), () => menuFoto(f));
       g.appendChild(card);
@@ -280,14 +282,54 @@ const App = (() => {
     else abrirProyecto(proyectoId);
   }
 
-  /* ══════════ ajustes ══════════ */
+  /* ══════════ ajustes / sesión ══════════ */
   function pintarAjustes() {
     const a = Ajustes.leer();
-    $('aj-url').value = a.url || '';
     $('aj-calidad').value = a.calidad || '0.92';
     $('aj-marca').checked = !!a.marca;
+    $('aj-liberar').checked = Ajustes.liberar;
     document.querySelectorAll('#aj-unidades button').forEach(b =>
       b.classList.toggle('sel', b.dataset.u === Ajustes.unidad));
+    refrescarSesion();
+  }
+
+  /* refleja el estado de login en Ajustes y en el banner del home */
+  function refrescarSesion() {
+    const configurado = GAuth.configurado();
+    const logueado = configurado && GAuth.estaLogueado();
+    const u = GAuth.getUsuario();
+
+    // Ajustes
+    $('aj-sin-config').classList.toggle('oculto', configurado);
+    $('aj-sin-sesion').classList.toggle('oculto', !configurado || logueado);
+    $('aj-con-sesion').classList.toggle('oculto', !logueado);
+    if (logueado && u) {
+      $('aj-user-name').textContent = u.name || '';
+      $('aj-user-mail').textContent = u.email || '';
+      if (u.picture) $('aj-user-pic').src = u.picture;
+    }
+
+    // banner del home
+    $('home-signin').classList.toggle('oculto', !configurado || logueado);
+    const bc = $('home-cuenta');
+    bc.classList.toggle('oculto', !logueado);
+    if (logueado && u) {
+      $('home-cuenta-mail').textContent = u.email || '';
+      if (u.picture) $('home-cuenta-pic').src = u.picture;
+    }
+  }
+
+  async function entrarGoogle(btn) {
+    if (!GAuth.configurado()) { toast('Falta configurar el Client ID de Google'); return; }
+    const txt = btn && btn.textContent;
+    try {
+      await GAuth.entrar();
+      toast('✓ Entraste con Google — tus fotos van a tu Drive');
+      Drive.procesarCola(alCambiarEstadoFoto);
+    } catch (e) {
+      toast('No se pudo entrar: ' + (e.message || e), 4000);
+    }
+    if (btn && txt) btn.textContent = txt;
   }
 
   /* ══════════ wiring ══════════ */
@@ -308,7 +350,7 @@ const App = (() => {
       if (!p) return;
       hojaAcciones([
         { txt: 'Subir pendientes a Drive', icono: ICONOS.nube, fn: async () => {
-            if (!Ajustes.url) { toast('Primero configurá el backend en Ajustes'); return; }
+            if (!Drive.activo()) { toast('Primero entrá con Google en Ajustes'); return; }
             const pend = await DB.fotosPendientes();
             if (!pend.length) { toast('No hay fotos pendientes'); return; }
             toast(`Subiendo ${pend.length}…`);
@@ -339,32 +381,32 @@ const App = (() => {
     $('btn-sacar').addEventListener('click', () => Camara.abrir(proyectoActual.id));
 
     /* ajustes */
-    $('aj-url').addEventListener('change', () => Ajustes.guardar({ url: $('aj-url').value.trim() }));
     $('aj-calidad').addEventListener('change', () => Ajustes.guardar({ calidad: $('aj-calidad').value }));
     $('aj-marca').addEventListener('change', () => Ajustes.guardar({ marca: $('aj-marca').checked }));
+    $('aj-liberar').addEventListener('change', () => Ajustes.guardar({ liberar: $('aj-liberar').checked }));
     document.querySelectorAll('#aj-unidades button').forEach(b =>
       b.addEventListener('click', () => {
         Ajustes.guardar({ unidad: b.dataset.u });
         pintarAjustes();
       }));
-    $('aj-probar').addEventListener('click', async () => {
-      Ajustes.guardar({ url: $('aj-url').value.trim() });
-      if (!Ajustes.url) { toast('Pegá primero la URL del backend'); return; }
-      $('aj-probar').textContent = 'Probando…';
-      try {
-        await Drive.probar();
-        toast('✓ Conectado con tu Drive');
-      } catch (e) {
-        toast('No se pudo conectar: ' + e.message, 4200);
-      } finally {
-        $('aj-probar').textContent = 'Probar conexión';
-      }
+
+    /* sesión de Google (los clics de "entrar" deben salir directo del gesto) */
+    $('aj-entrar').addEventListener('click', () => entrarGoogle($('aj-entrar')));
+    $('home-signin').addEventListener('click', () => entrarGoogle($('home-signin')));
+    $('aj-salir').addEventListener('click', () => {
+      GAuth.salir();
+      toast('Cerraste sesión');
+    });
+    GAuth.alCambiar(() => {
+      refrescarSesion();
+      if (!document.getElementById('scr-home').classList.contains('oculto')) irHome();
     });
 
     Editor.init();
     Camara.init();
     irHome();
-    Drive.procesarCola(alCambiarEstadoFoto);
+    refrescarSesion();
+    GAuth.init().then(() => { refrescarSesion(); Drive.procesarCola(alCambiarEstadoFoto); }).catch(() => {});
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(() => {});

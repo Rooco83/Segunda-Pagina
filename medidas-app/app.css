@@ -235,10 +235,10 @@ img.proj-thumb{display:block;}
 .aj-cuerpo{flex:1;overflow-y:auto;padding:15px 14px calc(20px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px;}
 .card{background:#fff;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:11px;box-shadow:0 4px 14px -8px rgba(0,38,62,.25);}
 .aj-label{font-size:13px;font-weight:600;color:var(--tinta);}
-#aj-url,#aj-calidad{
+#aj-calidad{
   border:1.5px solid var(--borde);border-radius:12px;padding:12px;width:100%;background:#fff;color:var(--tinta);
 }
-#aj-url:focus,#aj-calidad:focus,#dlg-input:focus{
+#aj-calidad:focus,#dlg-input:focus{
   outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(0,38,62,.15);
 }
 .aj-chips{display:flex;gap:7px;flex-wrap:wrap;}
@@ -251,6 +251,30 @@ img.proj-thumb{display:block;}
 .aj-nota{font-size:12px;color:var(--gris-texto);margin:0;line-height:1.55;}
 .aj-nota code{background:var(--superficie);border-radius:5px;padding:1px 5px;}
 .aj-version{text-align:center;color:var(--gris-texto);font-size:11px;}
+.aj-user{display:flex;align-items:center;gap:12px;}
+.aj-user img{width:44px;height:44px;border-radius:50%;background:var(--superficie);object-fit:cover;flex-shrink:0;}
+.aj-user img:not([src]),.aj-user img[src=""]{display:none;}
+.aj-user-txt b{display:block;font-size:14px;}
+.aj-user-txt small{font-size:12px;color:var(--gris-texto);word-break:break-all;}
+
+/* botón/insignia de Google */
+.g-ico{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:22px;height:22px;border-radius:50%;background:#fff;color:#00263E;
+  font-weight:800;font-size:13px;flex-shrink:0;
+}
+.banner-signin{
+  display:flex;align-items:center;gap:10px;width:100%;
+  background:var(--navy);color:#fff;border-radius:var(--radio);padding:12px 14px;
+  font-weight:700;font-size:13px;text-align:left;box-shadow:var(--sombra);
+}
+.banner-signin span:last-child{flex:1;}
+.banner-cuenta{
+  display:flex;align-items:center;gap:8px;justify-content:center;
+  color:var(--gris-texto);font-size:12px;font-weight:600;padding:2px 0;
+}
+.banner-cuenta img{width:22px;height:22px;border-radius:50%;object-fit:cover;}
+.banner-cuenta img:not([src]),.banner-cuenta img[src=""]{display:none;}
 
 /* ═══════════ Overlays ═══════════ */
 .velo{position:fixed;inset:0;background:rgba(0,20,33,.45);z-index:40;display:flex;align-items:center;justify-content:center;padding:22px;}

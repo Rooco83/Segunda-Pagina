@@ -632,27 +632,51 @@ const Editor = (() => {
     ctx.restore();
   }
 
-  function exportarBlob() {
-    return new Promise(res => {
-      const cv = document.createElement('canvas');
-      cv.width = W; cv.height = H;
-      const ctx = cv.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      annos.forEach(a => annoCanvas(ctx, a));
-      if (Ajustes.marca && proyecto) {
-        const f = base * 0.02;
-        const txt = `${proyecto.nombre} · ${new Date().toLocaleDateString('es-AR')}`;
-        ctx.font = `600 ${f}px Montserrat, sans-serif`;
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'bottom';
-        ctx.fillStyle = 'rgba(7,24,36,.55)';
-        const wTxt = ctx.measureText(txt).width;
-        ctx.fillRect(W - wTxt - f * 1.6, H - f * 2.1, wTxt + f * 1.2, f * 1.7);
-        ctx.fillStyle = '#fff';
-        ctx.fillText(txt, W - f, H - f * 0.7);
-      }
-      cv.toBlob(b => res(b), 'image/jpeg', Ajustes.calidad);
+  function cargarImg(blob) {
+    return new Promise((res, rej) => {
+      const im = new Image();
+      const u = URL.createObjectURL(blob);
+      im.onload = () => { res({ im, u }); };
+      im.onerror = () => { URL.revokeObjectURL(u); rej(new Error('img')); };
+      im.src = u;
     });
+  }
+
+  /* Las cotas están en coordenadas del espacio de edición (W×H = proxy).
+     Al exportar usamos el original a máxima resolución si sigue en el teléfono;
+     si ya se liberó, exportamos a la resolución del proxy. */
+  async function exportarBlob() {
+    let bg = img, bw = W, bh = H, urlTmp = null;
+    if (foto && foto.blobOriginal) {
+      try {
+        const r = await cargarImg(foto.blobOriginal);
+        bg = r.im; urlTmp = r.u;
+        bw = r.im.naturalWidth; bh = r.im.naturalHeight;
+      } catch {}
+    }
+    const cv = document.createElement('canvas');
+    cv.width = bw; cv.height = bh;
+    const ctx = cv.getContext('2d');
+    ctx.drawImage(bg, 0, 0, bw, bh);
+    ctx.save();
+    ctx.scale(bw / W, bh / H);
+    annos.forEach(a => annoCanvas(ctx, a));
+    if (Ajustes.marca && proyecto) {
+      const f = base * 0.02;
+      const txt = `${proyecto.nombre} · ${new Date().toLocaleDateString('es-AR')}`;
+      ctx.font = `600 ${f}px Montserrat, sans-serif`;
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'bottom';
+      ctx.fillStyle = 'rgba(7,24,36,.55)';
+      const wTxt = ctx.measureText(txt).width;
+      ctx.fillRect(W - wTxt - f * 1.6, H - f * 2.1, wTxt + f * 1.2, f * 1.7);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(txt, W - f, H - f * 0.7);
+    }
+    ctx.restore();
+    const blob = await new Promise(res => cv.toBlob(res, 'image/jpeg', Ajustes.calidad));
+    if (urlTmp) URL.revokeObjectURL(urlTmp);
+    return blob;
   }
 
   async function guardar() {
@@ -660,10 +684,10 @@ const Editor = (() => {
     try {
       foto.blobFinal = await exportarBlob();
       foto.anotaciones = snap();
-      foto.estadoDrive = Ajustes.url ? 'pendiente' : 'local';
+      foto.estadoDrive = Drive.activo() ? 'pendiente' : 'local';
       await DB.guardarFoto(foto);
       Drive.procesarCola(App.alCambiarEstadoFoto);
-      App.toast(Ajustes.url ? 'Guardada — subiendo a Drive' : 'Guardada en el proyecto');
+      App.toast(Drive.activo() ? 'Guardada — subiendo a tu Drive' : 'Guardada en el proyecto');
       cerrar();
       App.abrirProyecto(proyecto.id);
     } finally {
@@ -705,8 +729,17 @@ const Editor = (() => {
     annos = JSON.parse(JSON.stringify(foto.anotaciones || []));
     sel = -1; historia = []; futuro = [];
 
+    // imagen de edición: el proxy liviano; si no está, el original o la miniatura;
+    // y si ya se liberó todo, se baja de Drive.
+    let fuente = foto.proxy || foto.blobOriginal || foto.thumb;
+    if (!fuente && foto.driveFileId && Drive.activo()) {
+      App.toast('Bajando la foto de tu Drive…');
+      try { fuente = await Drive.descargar(foto.driveFileId); } catch {}
+    }
+    if (!fuente) { App.toast('No se pudo abrir la foto'); return; }
+
     if (imgURL) URL.revokeObjectURL(imgURL);
-    imgURL = URL.createObjectURL(foto.blobOriginal);
+    imgURL = URL.createObjectURL(fuente);
     img = new Image();
     await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = imgURL; });
     W = img.naturalWidth; H = img.naturalHeight; base = Math.max(W, H);

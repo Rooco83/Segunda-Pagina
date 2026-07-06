@@ -76,19 +76,58 @@ const DB = (() => {
       req.onsuccess = () => res(req.result);
       req.onerror = () => rej(req.error);
     })),
-    crearFoto: (proyectoId, blobOriginal) => {
+    crearFoto: async (proyectoId, blobOriginal) => {
       const f = {
         id: uid(), proyectoId, creado: Date.now(),
         blobOriginal,
+        proxy: await escalar(blobOriginal, 1600, 0.82),   // copia liviana editable
+        thumb: await escalar(blobOriginal, 480, 0.72),    // miniatura de la galería
         anotaciones: [],
         blobFinal: null,
+        driveFileId: null,
+        driveUrl: '',
         estadoDrive: 'local'   // local | pendiente | subiendo | subida | error
       };
       return tx('fotos', 'readwrite', st => st.add(f)).then(() => f);
     },
     guardarFoto: (f) => tx('fotos', 'readwrite', st => st.put(f)),
+    /* tras subir a Drive: suelta las copias pesadas, deja miniatura + proxy + cotas */
+    aligerarFoto: async (f) => {
+      if (!f.proxy && f.blobOriginal) f.proxy = await escalar(f.blobOriginal, 1600, 0.82);
+      if (!f.thumb) f.thumb = await escalar(f.blobFinal || f.blobOriginal, 480, 0.72);
+      f.blobOriginal = null;
+      f.blobFinal = null;
+      return tx('fotos', 'readwrite', st => st.put(f));
+    },
     borrarFoto: (id) => tx('fotos', 'readwrite', st => st.delete(id)),
     fotosPendientes: () => todos('fotos').then(fs =>
       fs.filter(f => f.estadoDrive === 'pendiente' || f.estadoDrive === 'error'))
   };
+
+  /* reduce un JPEG a maxLado (px del lado más largo) */
+  async function escalar(blob, maxLado, calidad) {
+    if (!blob) return null;
+    try {
+      const bmp = await crearBitmap(blob);
+      const escala = Math.min(1, maxLado / Math.max(bmp.width, bmp.height));
+      const w = Math.round(bmp.width * escala), h = Math.round(bmp.height * escala);
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(bmp, 0, 0, w, h);
+      if (bmp.close) bmp.close();
+      return await new Promise(res => cv.toBlob(res, 'image/jpeg', calidad));
+    } catch {
+      return blob;   // si algo falla, no rompemos: dejamos el original
+    }
+  }
+  function crearBitmap(blob) {
+    if (window.createImageBitmap) return createImageBitmap(blob);
+    return new Promise((res, rej) => {
+      const img = new Image();
+      const u = URL.createObjectURL(blob);
+      img.onload = () => { URL.revokeObjectURL(u); res(img); };
+      img.onerror = rej;
+      img.src = u;
+    });
+  }
 })();

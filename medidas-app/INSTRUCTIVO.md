@@ -1,116 +1,92 @@
-# 📐 Cotas Venue — Instructivo paso a paso
+# 📐 Cotas Venue — Instructivo
 
-Hola Rodrigo. Esta es tu app para **sacar fotos y marcarles cotas, medidas,
-ángulos, flechas y notas**, organizadas **por proyecto**. Cada foto final
-(con las cotas ya "quemadas") se guarda sola en tu **Drive de @venue**, en una
-carpeta con el nombre del proyecto.
-
-La app ya está lista para usar. Solo falta un paso de tu lado: crear el
-"backend" en Apps Script para que las fotos lleguen a TU Drive. Es **copiar,
-pegar y hacer clics** — calculá unos **15 minutos** la primera vez.
+App para **sacar fotos y marcarles cotas, medidas, ángulos y notas**, organizadas
+**por proyecto**. Cada persona entra con **su** Google y las fotos finales se
+guardan en **su propio Drive**, en la carpeta **`Cotas Venue/<Proyecto>/`**.
+Privado por usuario: nadie ve las carpetas de los demás.
 
 ---
 
-## Parte 1 · Abrir la app en el teléfono
+## Parte A · Configuración de Google (una sola vez, la hace el dueño)
 
-1. Entrá desde el navegador del celu a:
+Esto ya lo hicimos, pero queda documentado por si hay que rehacerlo. Es **gratis**
+y **no pide tarjeta** (ignorá el cartel del crédito de $300).
+
+1. **[console.cloud.google.com](https://console.cloud.google.com)** con la cuenta @venue →
+   **Selecciona un proyecto → Proyecto nuevo** → nombre **`Cotas Venue`** → Crear.
+2. **Habilitar la Drive API**: buscá *"Google Drive API"* → **Habilitar**.
+3. **Pantalla de consentimiento OAuth** → tipo **Interno** (solo @venue, sin
+   advertencias). Nombre `Cotas Venue`, mail de soporte.
+4. **Credenciales → Crear → ID de cliente de OAuth → Aplicación web**:
+   - *Orígenes de JavaScript autorizados*: **`https://rooco83.github.io`**
+   - (no hace falta URI de redireccionamiento).
+5. Copiás el **Client ID** (`…apps.googleusercontent.com`) y lo pegás en
+   **`medidas-app/config.js`** (`googleClientId`). El **secreto del cliente NO se usa**.
+
+> El Client ID no es secreto (identifica a la app). El "secreto del cliente" no
+> se usa en esta app y no debe ponerse nunca en el código.
+
+---
+
+## Parte B · Publicar la app (GitHub Pages, gratis)
+
+La app tiene que vivir en **`https://rooco83.github.io`** (el origen que autorizaste
+arriba), si no, el login de Google no funciona.
+
+1. En GitHub, entrá al repo **Rooco83/Segunda-Pagina** → **Settings** → **Pages**.
+2. En *Build and deployment → Source* elegí **Deploy from a branch**.
+3. *Branch*: elegí la rama donde está la app (`claude/photo-measurement-app-design-va3e87`
+   o `main` si ya la mergeaste), carpeta **/(root)** → **Save**.
+4. Esperá 1–2 minutos. La app queda en:
    ```
    https://rooco83.github.io/Segunda-Pagina/medidas-app/
    ```
-2. Para tenerla como una app de verdad (ícono + pantalla completa):
-   - **Android / Chrome:** menú ⋮ → **"Agregar a pantalla principal"** → Instalar.
-   - **iPhone / Safari:** botón compartir → **"Agregar a pantalla de inicio"**.
-
-> 💡 Ya podés usarla así: crear proyectos, sacar fotos y ponerles cotas.
-> Todo queda guardado en el teléfono. La Parte 2 agrega la subida a Drive.
 
 ---
 
-## Parte 2 · El backend que guarda en tu Drive
+## Parte C · Usarla en el teléfono
 
-### Paso 1 · (Opcional) Elegir la carpeta raíz en Drive
+1. Abrí esa URL en el navegador del celu.
+2. Instalala como app:
+   - **Android / Chrome**: menú ⋮ → **Agregar a pantalla principal**.
+   - **iPhone / Safari**: compartir → **Agregar a pantalla de inicio**.
+3. Tocá **Entrar con Google** (banner del inicio o en ⚙️ Ajustes) → elegí tu
+   cuenta @venue → **Permitir** una vez. Queda recordado.
+4. Listo: creá proyectos, sacá/importá fotos, marcá cotas y **Guardar**. Cada foto
+   sube sola a `Cotas Venue/<Proyecto>/` en **tu** Drive.
 
-Si querés que las fotos vayan a una carpeta específica (por ejemplo dentro de
-una Unidad compartida de Venue):
-
-1. Entrá a esa carpeta en [drive.google.com](https://drive.google.com).
-2. Copiá su **ID** desde la URL:
-   ```
-   https://drive.google.com/drive/folders/ESTO_DE_ACA_ES_EL_ID
-   ```
-3. Guardalo en un bloc de notas.
-
-Si te salteás este paso, la app crea sola una carpeta matriz **"Cotas Venue"**
-en *Mi unidad* y adentro va creando una subcarpeta por cada proyecto.
-
-### Paso 2 · Crear el Apps Script
-
-1. Con tu cuenta de **@venue**, entrá a **[script.google.com](https://script.google.com)**
-   → **Nuevo proyecto**.
-2. Arriba a la izquierda, donde dice *"Proyecto sin título"*, ponele nombre:
-   **Cotas Venue**.
-3. Borrá todo lo que hay en el editor y **pegá completo** el contenido del
-   archivo **`Codigo.gs`** (está junto a este instructivo, en
-   `medidas-app/Codigo.gs`).
-4. Si hiciste el Paso 1: buscá arriba del todo la línea
-   ```js
-   ROOT_FOLDER_ID: '',
-   ```
-   y pegá tu ID entre las comillas.
-5. **Guardá** (Ctrl+S o el disquito 💾).
-
-### Paso 3 · Publicarlo como app web
-
-1. Botón azul **Implementar** → **Nueva implementación**.
-2. Engranaje ⚙️ → tipo **Aplicación web**.
-3. Completá:
-   - **Ejecutar como:** *Yo* (tu cuenta @venue).
-   - **Quién tiene acceso:** *Cualquier persona con el vínculo*.
-4. **Implementar** → Google te va a pedir **autorizar permisos**: aceptá
-   (puede avisarte que "la app no está verificada": *Configuración avanzada →
-   Ir a Cotas Venue*). Es tu propio script, no hay terceros.
-5. Copiá la **URL de la aplicación web** (termina en **`/exec`**).
-
-### Paso 4 · Conectar la app
-
-1. En el teléfono, abrí **Cotas Venue** → engranaje ⚙️ (arriba a la derecha
-   de la pantalla naranja).
-2. Pegá la URL `/exec` en **"URL del backend"**.
-3. Tocá **"Probar conexión"** → tiene que decir **"✓ Conectado con tu Drive"**.
-
-¡Listo! A partir de acá, cada vez que guardes una foto anotada, sube sola a
-`Cotas Venue / <nombre del proyecto> /` en tu Drive. Si estás sin señal queda
-**pendiente** y se sube cuando vuelva la conexión (o desde el menú ⋮ del
-proyecto → *"Subir pendientes a Drive"*).
+> **Cada usuario** repite solo el punto 3 (Entrar con Google) en su teléfono. La
+> configuración de Google (Parte A) y la publicación (Parte B) se hacen **una vez**.
 
 ---
 
 ## Cómo se usa (resumen)
 
-| Qué querés hacer | Cómo |
+| Qué querés | Cómo |
 |---|---|
-| Crear proyecto | Pantalla naranja → **Nuevo proyecto** |
-| Renombrar / eliminar proyecto | Mantené apretada su tarjeta (o menú ⋮ adentro) |
-| Sacar foto | Dentro del proyecto → **Sacar foto** (zoom, linterna, exposición, grilla, nivel) |
-| Importar de la galería | Dentro del proyecto → **Importar** |
-| Agregar cota / flecha / ángulo / texto / marco | Tocá la herramienta abajo — aparece en el centro y la acomodás arrastrando los **puntitos naranjas** (con lupa de precisión) |
-| Cambiar el valor de una cota | Tocá el numerito de la cota |
-| Cambiar color / unidad / tamaño / grosor | Con la anotación seleccionada, usá la fila de arriba de las herramientas |
-| Deshacer / rehacer / duplicar / borrar | Botones de arriba del editor |
-| Guardar y subir a Drive | Botón naranja **Guardar** |
-| Compartir por WhatsApp / mail | Botón compartir (arriba, en el editor) |
+| Entrar / cambiar de cuenta | Banner del inicio o ⚙️ Ajustes → *Entrar con Google* / *Cerrar sesión* |
+| Crear proyecto | Inicio → **Nuevo proyecto** |
+| Renombrar / eliminar proyecto | Mantené apretada la tarjeta (o ⋮ adentro) |
+| Sacar / importar foto | Dentro del proyecto → **Sacar foto** / **Importar** |
+| Cotas, ángulos, texto… | Herramientas de abajo; acomodás con los puntitos naranjas |
+| Color / unidad / tamaño / grosor | Fila de arriba de las herramientas |
+| Guardar y subir a tu Drive | Botón **Guardar** |
+| Compartir por WhatsApp / mail | Botón compartir del editor |
+| Borrar un proyecto de Drive también | Al eliminar, tildás *"Borrar también de Drive"* |
+
+**Espacio en el teléfono:** después de subir, la app **borra la copia pesada** y
+deja una miniatura + una copia liviana para editar. Se puede desactivar en Ajustes
+(*"Liberar espacio"*). El original a máxima resolución queda en tu Drive.
 
 ---
 
 ## Si algo no anda
 
-- **"No se pudo conectar"** al probar: revisá que la URL termine en `/exec` y
-  que en la implementación el acceso sea *"Cualquier persona con el vínculo"*.
-- **Cambiaste el código del script:** hay que crear una **Nueva implementación**
-  (o *Administrar implementaciones → editar → nueva versión*) para que se
-  actualice la URL.
-- **La cámara no abre controles pro:** depende del teléfono y navegador
-  (en iPhone la cámara pro es más limitada). La app cae sola a la cámara
-  nativa si hace falta; la foto sale igual.
-- **Fotos "pendientes" que no suben:** entrá al proyecto → menú ⋮ →
-  *"Subir pendientes a Drive"*.
+- **El botón "Entrar con Google" no hace nada / da error de origen**: revisá que la
+  app se abra desde `https://rooco83.github.io/...` y que ese origen esté en
+  *Orígenes de JavaScript autorizados* del ID de OAuth (Parte A, paso 4).
+- **"Falta el Client ID"** en Ajustes: no se pegó el Client ID en `config.js`.
+- **Una foto quedó "pendiente"**: entrá al proyecto → ⋮ → *Subir pendientes a Drive*
+  (necesitás señal y estar logueado).
+- **Cambié de teléfono**: entrás con Google; las fotos están en tu Drive. La app baja
+  lo que necesites cuando abrís una foto.

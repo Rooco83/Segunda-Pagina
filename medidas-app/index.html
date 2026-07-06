@@ -30,6 +30,14 @@
     <p>¿Qué medimos hoy?</p>
   </div>
   <div class="sheet">
+    <button id="home-signin" class="banner-signin oculto">
+      <span class="g-ico" aria-hidden="true">G</span>
+      <span>Entrá con Google para guardar en tu Drive</span>
+    </button>
+    <div id="home-cuenta" class="banner-cuenta oculto">
+      <img id="home-cuenta-pic" alt="" referrerpolicy="no-referrer">
+      <span id="home-cuenta-mail">—</span>
+    </div>
     <button id="btn-nuevo-proj" class="btn btn-navy">
       <svg viewBox="0 0 24 24" class="i"><path d="M12 5v14M5 12h14"/></svg>
       Nuevo proyecto
@@ -176,11 +184,20 @@
   </header>
   <div class="aj-cuerpo">
     <div class="card">
-      <div class="lbl">Drive</div>
-      <label class="aj-label" for="aj-url">URL del backend (Apps Script /exec)</label>
-      <input type="url" id="aj-url" placeholder="https://script.google.com/macros/s/…/exec">
-      <button class="btn btn-navy" id="aj-probar">Probar conexión</button>
-      <p class="aj-nota">¿No lo configuraste todavía? Seguí el <b>INSTRUCTIVO.md</b> de la carpeta <code>medidas-app</code> — son 15 minutos y las fotos quedan en tu Drive de @venue.</p>
+      <div class="lbl">Tu cuenta de Google</div>
+      <div id="aj-sin-sesion">
+        <p class="aj-nota">Entrá con tu Google y tus fotos se guardan en <b>tu propio Drive</b>, en la carpeta «Cotas Venue», ordenadas por proyecto. Nadie más las ve.</p>
+        <button class="btn btn-navy" id="aj-entrar"><span class="g-ico" aria-hidden="true">G</span> Entrar con Google</button>
+      </div>
+      <div id="aj-con-sesion" class="oculto">
+        <div class="aj-user">
+          <img id="aj-user-pic" alt="" referrerpolicy="no-referrer">
+          <div class="aj-user-txt"><b id="aj-user-name">—</b><small id="aj-user-mail">—</small></div>
+        </div>
+        <label class="aj-check"><input type="checkbox" id="aj-liberar" checked> Liberar espacio: borrar la foto del teléfono después de subirla a Drive</label>
+        <button class="btn btn-ghost" id="aj-salir">Cerrar sesión</button>
+      </div>
+      <p id="aj-sin-config" class="aj-nota oculto">⚠️ Falta pegar el <b>Client ID</b> de Google en <code>config.js</code> (ver INSTRUCTIVO).</p>
     </div>
     <div class="card">
       <div class="lbl">Valores por defecto</div>
@@ -216,6 +233,8 @@
 </div>
 <div id="toast" class="toast oculto"></div>
 
+<script src="config.js"></script>
+<script src="gauth.js"></script>
 <script src="db.js"></script>
 <script src="drive.js"></script>
 <script src="editor.js"></script>
