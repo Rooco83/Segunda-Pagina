@@ -115,11 +115,12 @@
       <label>Subí tu comprobante</label>
       <div class="upload">
         <input type="file" id="t_foto" accept="image/*" capture="environment" onchange="onFile('t',this)" hidden>
-        <input type="file" id="t_foto_gal" accept="image/*" onchange="onFile('t',this)" hidden>
+        <input type="file" id="t_foto_gal" accept="image/*,application/pdf" onchange="onFile('t',this)" hidden>
         <div class="upbtns">
           <button type="button" class="upbtn cam" onclick="document.getElementById('t_foto').click()">📷 Sacar foto</button>
-          <button type="button" class="upbtn gal" onclick="document.getElementById('t_foto_gal').click()">🖼️ Galería</button>
+          <button type="button" class="upbtn gal" onclick="document.getElementById('t_foto_gal').click()">📎 Foto o PDF</button>
         </div>
+        <div class="hint">Sacá una foto, o subí una imagen o un PDF.</div>
         <div class="fname" id="t_fname"></div>
         <button class="linkbtn" onclick="manual('t')">No tengo comprobante → cargar a mano</button>
       </div>
@@ -166,11 +167,12 @@
       <label>Subí tu comprobante</label>
       <div class="upload">
         <input type="file" id="c_foto" accept="image/*" capture="environment" onchange="onFile('c',this)" hidden>
-        <input type="file" id="c_foto_gal" accept="image/*" onchange="onFile('c',this)" hidden>
+        <input type="file" id="c_foto_gal" accept="image/*,application/pdf" onchange="onFile('c',this)" hidden>
         <div class="upbtns">
           <button type="button" class="upbtn cam" onclick="document.getElementById('c_foto').click()">📷 Sacar foto</button>
-          <button type="button" class="upbtn gal" onclick="document.getElementById('c_foto_gal').click()">🖼️ Galería</button>
+          <button type="button" class="upbtn gal" onclick="document.getElementById('c_foto_gal').click()">📎 Foto o PDF</button>
         </div>
+        <div class="hint">Sacá una foto, o subí una imagen o un PDF.</div>
         <div class="fname" id="c_fname"></div>
         <button class="linkbtn" onclick="manual('c')">No tengo comprobante → cargar a mano</button>
       </div>
@@ -287,22 +289,32 @@
     function onFile(p,input){
       var f=input.files[0]; if(!f) return;
       document.getElementById(p+'_fname').textContent='✓ '+f.name;
+      var esImagen = /^image\//.test(f.type||'');
       var rd=new FileReader();
       rd.onload=function(ev){
-        var img=new Image();
-        img.onload=function(){
-          var max=1600, w=img.width, h=img.height;
-          if(w>max||h>max){ var e=max/Math.max(w,h); w=Math.round(w*e); h=Math.round(h*e); }
-          var cv=document.createElement('canvas'); cv.width=w; cv.height=h;
-          cv.getContext('2d').drawImage(img,0,0,w,h);
-          var url=cv.toDataURL('image/jpeg',0.85);
-          st[p].img=url.split(',')[1]; st[p].mime='image/jpeg';
-          document.getElementById(p+'_estado').style.display='block';
-          google.script.run.withSuccessHandler(function(d){ llegoGemini(p,d); }).withFailureHandler(function(){ document.getElementById(p+'_estado').style.display='none'; abrirDatos(p); }).leerComprobante(st[p].img, st[p].mime);
-        };
-        img.src=ev.target.result;
+        if(esImagen){
+          // Imagen: la redimensionamos para que no pese tanto
+          var img=new Image();
+          img.onload=function(){
+            var max=1600, w=img.width, h=img.height;
+            if(w>max||h>max){ var e=max/Math.max(w,h); w=Math.round(w*e); h=Math.round(h*e); }
+            var cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+            cv.getContext('2d').drawImage(img,0,0,w,h);
+            enviarAGemini(p, cv.toDataURL('image/jpeg',0.85).split(',')[1], 'image/jpeg');
+          };
+          img.onerror=function(){ enviarAGemini(p, ev.target.result.split(',')[1], f.type||'application/octet-stream'); };
+          img.src=ev.target.result;
+        } else {
+          // PDF u otro archivo: lo mandamos tal cual, con su tipo real
+          enviarAGemini(p, ev.target.result.split(',')[1], f.type||'application/pdf');
+        }
       };
       rd.readAsDataURL(f);
+    }
+    function enviarAGemini(p, base64, mime){
+      st[p].img=base64; st[p].mime=mime;
+      document.getElementById(p+'_estado').style.display='block';
+      google.script.run.withSuccessHandler(function(d){ llegoGemini(p,d); }).withFailureHandler(function(){ document.getElementById(p+'_estado').style.display='none'; abrirDatos(p); }).leerComprobante(st[p].img, st[p].mime);
     }
     function llegoGemini(p,d){
       document.getElementById(p+'_estado').style.display='none';

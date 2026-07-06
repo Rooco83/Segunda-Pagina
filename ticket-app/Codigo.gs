@@ -423,9 +423,22 @@ function siguienteNumeroDeOrden_(hoja) {
   return max + 1;
 }
 
+// Extensión de archivo según el tipo (mime). Soporta imágenes, PDF y cualquier otro.
+function extDeMime_(mimeType) {
+  const m = String(mimeType || '').toLowerCase();
+  if (m.indexOf('pdf') > -1) return '.pdf';
+  if (m.indexOf('png') > -1) return '.png';
+  if (m.indexOf('webp') > -1) return '.webp';
+  if (m.indexOf('heic') > -1) return '.heic';
+  if (m.indexOf('heif') > -1) return '.heif';
+  if (m.indexOf('gif') > -1) return '.gif';
+  if (m.indexOf('jpeg') > -1 || m.indexOf('jpg') > -1) return '.jpg';
+  const slash = m.indexOf('/');
+  return slash > -1 ? '.' + m.slice(slash + 1).replace(/[^a-z0-9]/g, '') : '.bin';
+}
+
 function guardarImagen_(carpeta, base64, mimeType, nombre) {
-  const ext = (mimeType && mimeType.indexOf('png') > -1) ? '.png' : '.jpg';
-  const blob = Utilities.newBlob(Utilities.base64Decode(base64), mimeType || 'image/jpeg', nombre + ext);
+  const blob = Utilities.newBlob(Utilities.base64Decode(base64), mimeType || 'application/octet-stream', nombre + extDeMime_(mimeType));
   return carpeta.createFile(blob).getUrl();
 }
 
