@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Cotas Venue</title>
+<meta name="description" content="Sacá fotos y marcales cotas, medidas, ángulos y notas. Por proyecto, guardado en tu Drive.">
+<meta name="theme-color" content="#00263E">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<!-- ═══════════════ BIENVENIDA / PROYECTOS ═══════════════ -->
+<section id="scr-home" class="screen">
+  <div class="hola-top">
+    <button id="btn-ajustes" class="icon-btn hola-gear" aria-label="Ajustes">
+      <svg viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.65 8.85a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.01A1.7 1.7 0 0 0 10.05 3V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.01c.26.63.87 1.04 1.56 1.04H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51.94z"/></svg>
+    </button>
+    <img class="vlogo" src="venue-logo.png" alt="Venue">
+    <h1>¡Bienvenido, Venuer!</h1>
+    <p>¿Qué medimos hoy?</p>
+  </div>
+  <div class="sheet">
+    <button id="btn-nuevo-proj" class="btn btn-navy">
+      <svg viewBox="0 0 24 24" class="i"><path d="M12 5v14M5 12h14"/></svg>
+      Nuevo proyecto
+    </button>
+    <div class="lbl">Tus proyectos</div>
+    <div id="lista-proyectos" class="lista-proyectos">
+      <p class="vacio">Todavía no hay proyectos.<br>Creá el primero con el botón de arriba.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ PROYECTO · GALERÍA ═══════════════ -->
+<section id="scr-proj" class="screen oculto">
+  <header class="topbar">
+    <button class="icon-btn" id="btn-proj-volver" aria-label="Volver">
+      <svg viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <div class="topbar-titulo">
+      <b id="proj-nombre">Proyecto</b>
+      <small id="proj-meta">0 fotos</small>
+    </div>
+    <button class="icon-btn" id="btn-proj-menu" aria-label="Menú del proyecto">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.6" fill="currentColor" stroke="none"/></svg>
+    </button>
+  </header>
+  <div id="grilla-fotos" class="grilla">
+    <p class="vacio">Sin fotos todavía.<br>Sacá una o importala de tu galería.</p>
+  </div>
+  <footer class="proj-acciones">
+    <button id="btn-sacar" class="btn btn-navy">
+      <svg viewBox="0 0 24 24" class="i"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+      Sacar foto
+    </button>
+    <button id="btn-importar" class="btn btn-ghost">
+      <svg viewBox="0 0 24 24" class="i"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 15l5-5 4 4 3-3 4 4"/></svg>
+      Importar
+    </button>
+    <input type="file" id="input-importar" accept="image/*" multiple hidden>
+    <input type="file" id="input-captura" accept="image/*" capture="environment" hidden>
+  </footer>
+</section>
+
+<!-- ═══════════════ CÁMARA PRO ═══════════════ -->
+<section id="scr-cam" class="screen oculto s-oscuro">
+  <div class="visor-wrap">
+    <video id="cam-video" playsinline autoplay muted></video>
+    <div id="cam-grilla" class="cam-grilla"></div>
+    <div id="cam-nivel" class="cam-nivel oculto">
+      <span id="cam-nivel-deg">0°</span>
+      <span class="nivel-linea" id="cam-nivel-linea"><i class="nivel-burbuja"></i></span>
+    </div>
+    <div id="cam-cuenta" class="cam-cuenta oculto">3</div>
+    <div class="cam-top">
+      <button class="cam-btn" id="cam-torch" title="Linterna"><svg viewBox="0 0 24 24"><path d="M13 2L5 13h5l-1 9 8-11h-5l1-9z"/></svg></button>
+      <button class="cam-btn" id="cam-timer" title="Temporizador 3s"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg></button>
+      <button class="cam-btn" id="cam-gridbtn" title="Grilla"><svg viewBox="0 0 24 24"><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></button>
+      <button class="cam-btn" id="cam-nivelbtn" title="Nivel"><svg viewBox="0 0 24 24"><path d="M3 12h18M12 9v6"/><circle cx="12" cy="12" r="9"/></svg></button>
+      <button class="cam-btn" id="cam-flip" title="Cambiar cámara"><svg viewBox="0 0 24 24"><path d="M4 9a8 8 0 0 1 14-3l2 2M20 15a8 8 0 0 1-14 3l-2-2M17 6h3V3M7 18H4v3"/></svg></button>
+    </div>
+    <div class="cam-ev oculto" id="cam-ev-wrap">
+      <button class="cam-btn chico" id="cam-ev-menos">−</button>
+      <span id="cam-ev-val">0 EV</span>
+      <button class="cam-btn chico" id="cam-ev-mas">+</button>
+    </div>
+    <div class="cam-zoom oculto" id="cam-zoom-wrap">
+      <span id="cam-zoom-val">1.0×</span>
+      <input type="range" id="cam-zoom" min="1" max="8" step="0.1" value="1">
+    </div>
+  </div>
+  <div class="cam-abajo">
+    <button class="icon-btn blanco" id="btn-cam-volver" aria-label="Cerrar cámara">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <button id="cam-disparar" class="disparador" aria-label="Sacar foto"><i></i></button>
+    <span class="cam-res" id="cam-res">—</span>
+  </div>
+</section>
+
+<!-- ═══════════════ EDITOR ═══════════════ -->
+<section id="scr-editor" class="screen oculto s-oscuro">
+  <header class="ed-top">
+    <button class="icon-btn blanco" id="btn-ed-volver" aria-label="Volver">
+      <svg viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <div class="ed-top-grp">
+      <button class="icon-btn blanco" id="ed-undo" aria-label="Deshacer"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+      <button class="icon-btn blanco" id="ed-redo" aria-label="Rehacer"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
+      <button class="icon-btn blanco" id="ed-dup" aria-label="Duplicar anotación"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>
+      <button class="icon-btn blanco" id="ed-borrar" aria-label="Borrar anotación"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button>
+      <button class="icon-btn blanco" id="ed-compartir" aria-label="Compartir"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8 11l8-4M8 13l8 4"/></svg></button>
+    </div>
+    <button id="ed-guardar" class="btn-guardar">Guardar</button>
+  </header>
+
+  <div id="ed-stage" class="ed-stage">
+    <svg id="ed-svg"></svg>
+    <div id="lupa" class="lupa oculto"><canvas id="lupa-canvas" width="132" height="132"></canvas></div>
+  </div>
+
+  <div class="ed-props" id="ed-props">
+    <div class="props-fila">
+      <button class="cdot" data-color="#FFD400" style="background:#FFD400"></button>
+      <button class="cdot" data-color="#3DDC84" style="background:#3DDC84"></button>
+      <button class="cdot" data-color="#FF5252" style="background:#FF5252"></button>
+      <button class="cdot" data-color="#FFFFFF" style="background:#fff"></button>
+      <button class="cdot" data-color="#37C8F0" style="background:#37C8F0"></button>
+      <button class="cdot" data-color="#00263E" style="background:#00263E"></button>
+      <span class="sep"></span>
+      <button class="unidad" data-u="mm">mm</button>
+      <button class="unidad" data-u="cm">cm</button>
+      <button class="unidad" data-u="m">m</button>
+      <button class="unidad" data-u="in">in</button>
+      <button class="unidad" data-u="ft">ft</button>
+      <span class="sep"></span>
+      <button class="tbtn" id="ed-txt-menos">A−</button>
+      <button class="tbtn grande" id="ed-txt-mas">A+</button>
+      <span class="sep"></span>
+      <button class="tbtn" id="ed-grosor" title="Grosor de línea"><svg viewBox="0 0 24 24" class="i"><path d="M4 6h16" stroke-width="1"/><path d="M4 12h16" stroke-width="2.5"/><path d="M4 18h16" stroke-width="4"/></svg></button>
+    </div>
+  </div>
+
+  <nav class="ed-tools">
+    <button class="tool" data-tool="cota"><svg viewBox="0 0 24 24"><path d="M4 12h16M4 8v8M20 8v8"/></svg><span>Cota</span></button>
+    <button class="tool" data-tool="flecha"><svg viewBox="0 0 24 24"><path d="M5 19L19 5M19 5h-7M19 5v7"/></svg><span>Flecha</span></button>
+    <button class="tool" data-tool="curva"><svg viewBox="0 0 24 24"><path d="M4 18q8-14 16-6M20 12l-5-1m5 1l-1-5"/></svg><span>Curva</span></button>
+    <button class="tool" data-tool="angulo"><svg viewBox="0 0 24 24"><path d="M5 19L12 5M5 19h14M9 19a9 9 0 0 0-1.5-5"/></svg><span>Ángulo</span></button>
+    <button class="tool" data-tool="texto"><svg viewBox="0 0 24 24"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></svg><span>Texto</span></button>
+    <button class="tool" data-tool="rect"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2"/></svg><span>Marco</span></button>
+    <button class="tool" data-tool="elipse"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8" ry="6"/></svg><span>Óvalo</span></button>
+  </nav>
+</section>
+
+<!-- ═══════════════ AJUSTES ═══════════════ -->
+<section id="scr-ajustes" class="screen oculto">
+  <header class="topbar">
+    <button class="icon-btn" id="btn-aj-volver" aria-label="Volver">
+      <svg viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <div class="topbar-titulo"><b>Ajustes</b></div>
+    <span class="icon-btn" aria-hidden="true"></span>
+  </header>
+  <div class="aj-cuerpo">
+    <div class="card">
+      <div class="lbl">Drive</div>
+      <label class="aj-label" for="aj-url">URL del backend (Apps Script /exec)</label>
+      <input type="url" id="aj-url" placeholder="https://script.google.com/macros/s/…/exec">
+      <button class="btn btn-navy" id="aj-probar">Probar conexión</button>
+      <p class="aj-nota">¿No lo configuraste todavía? Seguí el <b>INSTRUCTIVO.md</b> de la carpeta <code>medidas-app</code> — son 15 minutos y las fotos quedan en tu Drive de @venue.</p>
+    </div>
+    <div class="card">
+      <div class="lbl">Valores por defecto</div>
+      <label class="aj-label">Unidad de las cotas</label>
+      <div class="aj-chips" id="aj-unidades">
+        <button data-u="mm">mm</button><button data-u="cm">cm</button><button data-u="m">m</button><button data-u="in">in</button><button data-u="ft">ft</button>
+      </div>
+      <label class="aj-label" for="aj-calidad">Calidad del JPG final</label>
+      <select id="aj-calidad">
+        <option value="0.85">Buena (archivos más livianos)</option>
+        <option value="0.92" selected>Muy buena (recomendada)</option>
+        <option value="0.98">Máxima</option>
+      </select>
+      <label class="aj-check"><input type="checkbox" id="aj-marca"> Marca de agua con proyecto y fecha</label>
+    </div>
+    <p class="aj-version">Cotas Venue · v1</p>
+  </div>
+</section>
+
+<!-- ═══════════════ OVERLAYS ═══════════════ -->
+<div id="velo" class="velo oculto">
+  <div id="dialogo" class="dialogo oculto">
+    <h3 id="dlg-titulo">Título</h3>
+    <input type="text" id="dlg-input" autocomplete="off">
+    <div class="dlg-botones">
+      <button class="btn btn-ghost" id="dlg-cancelar">Cancelar</button>
+      <button class="btn btn-navy" id="dlg-ok">Aceptar</button>
+    </div>
+  </div>
+  <div id="hoja" class="hoja oculto"></div>
+</div>
+<div id="toast" class="toast oculto"></div>
+
+<script src="db.js"></script>
+<script src="drive.js"></script>
+<script src="editor.js"></script>
+<script src="camara.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
