@@ -21,28 +21,90 @@ const App = (() => {
     t._timer = setTimeout(() => t.classList.add('oculto'), ms);
   }
 
-  function dialogo(titulo, valor = '', placeholder = '') {
+  /* diálogo flexible:
+     cfg = { titulo, mensaje?, input? (bool, def true), valor?, placeholder?,
+             check?: {txt, def}, okTxt?, peligro? }
+     resuelve { ok, valor, check } */
+  function mostrarDialogo(cfg) {
     return new Promise(res => {
+      const inp = $('dlg-input'), chkRow = $('dlg-check-row'), chk = $('dlg-check'), msg = $('dlg-msg');
+      const conInput = cfg.input !== false;
+
       $('velo').classList.remove('oculto');
       $('hoja').classList.add('oculto');
       $('dialogo').classList.remove('oculto');
-      $('dlg-titulo').textContent = titulo;
-      const inp = $('dlg-input');
-      inp.value = valor;
-      inp.placeholder = placeholder;
-      setTimeout(() => { inp.focus(); inp.select(); }, 60);
+      $('dlg-titulo').textContent = cfg.titulo;
 
-      const fin = (v) => {
+      msg.classList.toggle('oculto', !cfg.mensaje);
+      if (cfg.mensaje) msg.textContent = cfg.mensaje;
+
+      inp.classList.toggle('oculto', !conInput);
+      if (conInput) {
+        inp.value = cfg.valor || '';
+        inp.placeholder = cfg.placeholder || '';
+        setTimeout(() => { inp.focus(); inp.select(); }, 60);
+      }
+
+      chkRow.classList.toggle('oculto', !cfg.check);
+      if (cfg.check) { $('dlg-check-txt').textContent = cfg.check.txt; chk.checked = !!cfg.check.def; }
+
+      const ok = $('dlg-ok');
+      ok.textContent = cfg.okTxt || 'Aceptar';
+      ok.classList.toggle('btn-peligro', !!cfg.peligro);
+      ok.classList.toggle('btn-navy', !cfg.peligro);
+
+      const fin = (aceptado) => {
         $('velo').classList.add('oculto');
         $('dialogo').classList.add('oculto');
-        $('dlg-ok').onclick = $('dlg-cancelar').onclick = inp.onkeydown = $('velo').onclick = null;
-        res(v);
+        ok.classList.remove('btn-peligro'); ok.classList.add('btn-navy'); ok.textContent = 'Aceptar';
+        ok.onclick = $('dlg-cancelar').onclick = inp.onkeydown = $('velo').onclick = null;
+        res({ ok: aceptado, valor: inp.value.trim(), check: chk.checked });
       };
-      $('dlg-ok').onclick = () => fin(inp.value.trim());
-      $('dlg-cancelar').onclick = () => fin(null);
-      inp.onkeydown = e => { if (e.key === 'Enter') fin(inp.value.trim()); };
-      $('velo').onclick = e => { if (e.target === $('velo')) fin(null); };
+      ok.onclick = () => fin(true);
+      $('dlg-cancelar').onclick = () => fin(false);
+      inp.onkeydown = e => { if (e.key === 'Enter' && conInput) fin(true); };
+      $('velo').onclick = e => { if (e.target === $('velo')) fin(false); };
     });
+  }
+
+  /* atajo para pedir un texto: devuelve el valor o null si cancela */
+  async function dialogo(titulo, valor = '', placeholder = '') {
+    const r = await mostrarDialogo({ titulo, valor, placeholder, input: true });
+    return r.ok ? r.valor : null;
+  }
+
+  /* flujo de borrado de proyecto, con opción de borrar también en Drive */
+  async function borrarProyectoFlujo(p, despues) {
+    const fotos = await DB.fotosDe(p.id);
+    const sincronizado = fotos.some(f => f.estadoDrive === 'subida');
+    const cfg = {
+      titulo: 'Eliminar proyecto',
+      mensaje: `Se va a eliminar «${p.nombre}» y sus ${fotos.length} foto${fotos.length === 1 ? '' : 's'} de la app.`,
+      input: false,
+      okTxt: 'Eliminar',
+      peligro: true
+    };
+    if (Ajustes.url) {
+      cfg.check = {
+        txt: `Borrar también la carpeta «${p.nombre}» de tu Drive (si no, queda guardada ahí)`,
+        def: sincronizado
+      };
+    }
+    const r = await mostrarDialogo(cfg);
+    if (!r.ok) return;
+
+    await DB.borrarProyecto(p.id);
+    if (r.check && Ajustes.url) {
+      try {
+        await Drive.borrarProyectoEnDrive(p.nombre);
+        toast('Proyecto eliminado de la app y de Drive');
+      } catch (e) {
+        toast('Borrado de la app; en Drive no se pudo: ' + e.message, 4600);
+      }
+    } else {
+      toast('Proyecto eliminado de la app');
+    }
+    despues();
   }
 
   /* hoja de acciones: opciones = [{txt, icono?, peligro?, fn}] */
@@ -117,13 +179,8 @@ const App = (() => {
           await DB.guardarProyecto(p);
           irHome();
         } },
-      { txt: 'Eliminar proyecto y sus fotos', icono: ICONOS.tacho, peligro: true, fn: async () => {
-          const ok = await dialogo(`Escribí "borrar" para eliminar "${p.nombre}"`, '', 'borrar');
-          if (ok !== 'borrar') { toast('No se eliminó nada'); return; }
-          await DB.borrarProyecto(p.id);
-          toast('Proyecto eliminado');
-          irHome();
-        } }
+      { txt: 'Eliminar proyecto y sus fotos', icono: ICONOS.tacho, peligro: true,
+        fn: () => borrarProyectoFlujo(p, irHome) }
     ]);
   }
 
@@ -265,12 +322,8 @@ const App = (() => {
             await DB.guardarProyecto(p);
             abrirProyecto(p.id);
           } },
-        { txt: 'Eliminar proyecto y sus fotos', icono: ICONOS.tacho, peligro: true, fn: async () => {
-            const ok = await dialogo(`Escribí "borrar" para eliminar "${p.nombre}"`, '', 'borrar');
-            if (ok !== 'borrar') { toast('No se eliminó nada'); return; }
-            await DB.borrarProyecto(p.id);
-            irHome();
-          } }
+        { txt: 'Eliminar proyecto y sus fotos', icono: ICONOS.tacho, peligro: true,
+          fn: () => borrarProyectoFlujo(p, irHome) }
       ]);
     });
 

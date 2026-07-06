@@ -1,7 +1,7 @@
 /* Cotas Venue · sw.js — cache para funcionar offline */
 'use strict';
 
-const CACHE = 'cotas-venue-v2';
+const CACHE = 'cotas-venue-v3';
 const ARCHIVOS = [
   './',
   'index.html',

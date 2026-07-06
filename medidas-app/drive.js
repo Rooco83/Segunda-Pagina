@@ -49,6 +49,10 @@ const Drive = (() => {
     return llamar({ accion: 'ping' });
   }
 
+  async function borrarProyectoEnDrive(nombreProyecto) {
+    return llamar({ accion: 'borrarProyecto', proyecto: nombreProyecto });
+  }
+
   async function subirFoto(foto, nombreProyecto, numero) {
     const blob = foto.blobFinal || foto.blobOriginal;
     const base64 = await blobABase64(blob);
@@ -91,7 +95,7 @@ const Drive = (() => {
     }
   }
 
-  return { probar, procesarCola };
+  return { probar, procesarCola, borrarProyectoEnDrive };
 })();
 
 window.addEventListener('online', () => {

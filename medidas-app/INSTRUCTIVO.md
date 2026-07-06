@@ -40,8 +40,8 @@ una Unidad compartida de Venue):
    ```
 3. Guardalo en un bloc de notas.
 
-Si te salteás este paso, la app crea sola una carpeta **"Mediciones"** en
-*Mi unidad* y listo.
+Si te salteás este paso, la app crea sola una carpeta matriz **"Cotas Venue"**
+en *Mi unidad* y adentro va creando una subcarpeta por cada proyecto.
 
 ### Paso 2 · Crear el Apps Script
 
@@ -79,7 +79,7 @@ Si te salteás este paso, la app crea sola una carpeta **"Mediciones"** en
 3. Tocá **"Probar conexión"** → tiene que decir **"✓ Conectado con tu Drive"**.
 
 ¡Listo! A partir de acá, cada vez que guardes una foto anotada, sube sola a
-`Mediciones / <nombre del proyecto> /` en tu Drive. Si estás sin señal queda
+`Cotas Venue / <nombre del proyecto> /` en tu Drive. Si estás sin señal queda
 **pendiente** y se sube cuando vuelva la conexión (o desde el menú ⋮ del
 proyecto → *"Subir pendientes a Drive"*).
 

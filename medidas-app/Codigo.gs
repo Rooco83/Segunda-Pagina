@@ -4,12 +4,18 @@
  * ============================================================================
  *  Recibe los JPG finales de la app y los guarda en tu Drive:
  *
- *      <carpeta raíz "Mediciones">
+ *      <carpeta matriz "Cotas Venue">
  *          └── <Nombre del proyecto>
  *                └── Proyecto 001.jpg, Proyecto 002.jpg, ...
  *
- *  Configuración: pegá el ID de la carpeta raíz en ROOT_FOLDER_ID (opcional;
- *  si lo dejás vacío, la app crea/usa una carpeta "Mediciones" en Mi unidad).
+ *  · La carpeta matriz y las de cada proyecto se crean solas cuando hacen
+ *    falta. Si borrás una carpeta de proyecto a mano en Drive, se vuelve a
+ *    crear la próxima vez que subas una foto de ese proyecto.
+ *  · Solo se elimina en Drive si vos elegís borrar el proyecto DESDE LA APP
+ *    tildando "borrar también de Drive".
+ *
+ *  Configuración: pegá el ID de la carpeta matriz en ROOT_FOLDER_ID (opcional;
+ *  si lo dejás vacío, la app crea/usa una carpeta "Cotas Venue" en Mi unidad).
  *
  *  Deploy: Implementar → Nueva implementación → App web
  *          · Ejecutar como: yo
@@ -19,10 +25,10 @@
  */
 
 const CONFIG = {
-  // ID de la carpeta raíz en Drive (lo que va después de /folders/ en la URL).
-  // Vacío = se crea/usa una carpeta "Mediciones" en Mi unidad.
+  // ID de la carpeta matriz en Drive (lo que va después de /folders/ en la URL).
+  // Vacío = se crea/usa una carpeta "Cotas Venue" en Mi unidad.
   ROOT_FOLDER_ID: '',
-  ROOT_FOLDER_NAME: 'Mediciones'
+  ROOT_FOLDER_NAME: 'Cotas Venue'
 };
 
 function doGet() {
@@ -58,6 +64,18 @@ function doPost(e) {
         url: archivo.getUrl(),
         carpetaUrl: carpeta.getUrl()
       });
+    }
+
+    if (datos.accion === 'borrarProyecto') {
+      if (!datos.proyecto) {
+        return respuesta_({ ok: false, error: 'Falta el nombre del proyecto.' });
+      }
+      const raiz = carpetaRaiz_();
+      const carpetas = raiz.getFoldersByName(String(datos.proyecto));
+      let borradas = 0;
+      while (carpetas.hasNext()) { carpetas.next().setTrashed(true); borradas++; }
+      // borradas = 0 significa que no había carpeta (nunca se subió): igual es OK
+      return respuesta_({ ok: true, borradas: borradas });
     }
 
     return respuesta_({ ok: false, error: 'Acción desconocida: ' + datos.accion });

@@ -130,7 +130,7 @@
   </div>
 
   <div class="ed-props" id="ed-props">
-    <div class="props-fila">
+    <div class="props-fila fila-color">
       <button class="cdot" data-color="#FFD400" style="background:#FFD400"></button>
       <button class="cdot" data-color="#3DDC84" style="background:#3DDC84"></button>
       <button class="cdot" data-color="#FF5252" style="background:#FF5252"></button>
@@ -138,16 +138,19 @@
       <button class="cdot" data-color="#37C8F0" style="background:#37C8F0"></button>
       <button class="cdot" data-color="#00263E" style="background:#00263E"></button>
       <span class="sep"></span>
+      <button class="tbtn" id="ed-grosor" title="Grosor de línea"><svg viewBox="0 0 24 24" class="i"><path d="M4 6h16" stroke-width="1"/><path d="M4 12h16" stroke-width="2.5"/><path d="M4 18h16" stroke-width="4"/></svg></button>
+    </div>
+    <div class="props-fila fila-medida">
       <button class="unidad" data-u="m">m</button>
       <button class="unidad" data-u="cm">cm</button>
       <button class="unidad" data-u="mm">mm</button>
       <button class="unidad" data-u="in">in</button>
       <button class="unidad" data-u="ft">ft</button>
       <span class="sep"></span>
-      <button class="tbtn" id="ed-txt-menos">A−</button>
-      <button class="tbtn grande" id="ed-txt-mas">A+</button>
-      <span class="sep"></span>
-      <button class="tbtn" id="ed-grosor" title="Grosor de línea"><svg viewBox="0 0 24 24" class="i"><path d="M4 6h16" stroke-width="1"/><path d="M4 12h16" stroke-width="2.5"/><path d="M4 18h16" stroke-width="4"/></svg></button>
+      <span class="stepper">
+        <button class="tbtn" id="ed-txt-menos">A−</button>
+        <button class="tbtn grande" id="ed-txt-mas">A+</button>
+      </span>
     </div>
   </div>
 
@@ -201,7 +204,9 @@
 <div id="velo" class="velo oculto">
   <div id="dialogo" class="dialogo oculto">
     <h3 id="dlg-titulo">Título</h3>
+    <p id="dlg-msg" class="dlg-msg oculto"></p>
     <input type="text" id="dlg-input" autocomplete="off">
+    <label id="dlg-check-row" class="dlg-check oculto"><input type="checkbox" id="dlg-check"> <span id="dlg-check-txt"></span></label>
     <div class="dlg-botones">
       <button class="btn btn-ghost" id="dlg-cancelar">Cancelar</button>
       <button class="btn btn-navy" id="dlg-ok">Aceptar</button>
