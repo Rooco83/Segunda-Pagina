@@ -23,7 +23,7 @@ const CONFIG = {
   CCO_ANIO_MINIMO: 2025, // en CCOs se muestran los de este año en adelante
 
   // Carpeta "Rendiciones" DENTRO de la Unidad compartida (pegá su ID).
-  ROOT_FOLDER_ID: '0AMxcaTKofh7hUk9PVA',
+  ROOT_FOLDER_ID: '1_kkBOM3lXaF7A7TLBFfHbXZOXsyYOdAr',
   SUB_TARJETA: 'Tarjeta',
   SUB_CAJA:    'Caja Chica',
   SOLAPA_CAJA: 'Gastos',
