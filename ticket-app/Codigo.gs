@@ -258,7 +258,9 @@ function procesarTicket(p) {
     const headers = esTarjeta ? ENC_TARJETA : ENC_CAJA;
     const ss = getSpreadsheetIn_(carpetaDestino, ssName);
     const hoja = getOrCreateHoja_(ss, solapa, esTarjeta ? (p.titular || '') : (p.cco || ''), esTarjeta ? solapa : '', headers);
-    const carpetaImg = getOrCreateSubcarpeta_(carpetaDestino, CONFIG.CARPETA_IMAGENES);
+    // Imágenes: en Tarjeta, además se separan por solapa (ej: Imágenes/Mayo 2026/).
+    let carpetaImg = getOrCreateSubcarpeta_(carpetaDestino, CONFIG.CARPETA_IMAGENES);
+    if (esTarjeta) carpetaImg = getOrCreateSubcarpeta_(carpetaImg, limpiarNombre_(solapa));
 
     const orden = siguienteNumeroDeOrden_(hoja);
     const ordenTxt = String(orden).padStart(4, '0');
