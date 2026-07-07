@@ -347,10 +347,8 @@ const Editor = (() => {
     const a = { t: tool, color: def.color, fs: def.fs, grosor: def.grosor };
 
     if (tool === 'cota') {
+      // se crea sin valor; el "?" se toca después para cargar la medida
       Object.assign(a, { x1: cx - d, y1: cy, x2: cx + d, y2: cy, val: '', u: Ajustes.unidad });
-      const val = await App.dialogo('Valor de la cota', '', 'ej: 2,45');
-      if (val === null) return;
-      a.val = val || '?';
     } else if (tool === 'flecha') {
       Object.assign(a, { x1: cx - d, y1: cy + d * 0.5, x2: cx + d * 0.7, y2: cy - d * 0.5 });
     } else if (tool === 'curva') {
