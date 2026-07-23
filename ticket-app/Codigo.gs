@@ -283,7 +283,7 @@ function procesarTicket(p) {
       estado = agregarAviso_(estado, 'no se guardó el archivo: ' + e.message);
     }
 
-    const monedaTxt = (p.moneda || CONFIG.MONEDA_ESPERADA).toUpperCase();
+    const monedaTxt = normalizarMoneda_(p.moneda);
     const comun = [orden, p.fecha || '', p.tipoComprobante || '', p.proveedor || '', parseImporte_(p.importe), monedaTxt];
     const valores = esTarjeta
       ? comun.concat([p.titular || '', p.cco || '', p.cuenta || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado])
@@ -477,6 +477,27 @@ function parseImporte_(v) {
   s = s.replace(/\./g, '').replace(',', '.');
   const n = parseFloat(s);
   return isNaN(n) ? '' : n;
+}
+
+// Normaliza la moneda a un código único (ARS, USD, EUR…) para que "dólares", "U$S",
+// "usd", etc. no generen totales separados. Si no la reconoce, devuelve el texto en mayúsculas.
+function normalizarMoneda_(txt) {
+  let s = String(txt == null ? '' : txt).trim().toUpperCase().replace(/\./g, '').replace(/\s+/g, ' ');
+  if (!s) return CONFIG.MONEDA_ESPERADA; // ARS por defecto
+  const MAPA = {
+    'ARS': 'ARS', 'PESO': 'ARS', 'PESOS': 'ARS', 'PESO ARGENTINO': 'ARS', 'PESOS ARGENTINOS': 'ARS', '$': 'ARS', 'AR$': 'ARS', 'ARS$': 'ARS',
+    'USD': 'USD', 'US$': 'USD', 'U$S': 'USD', 'U$D': 'USD', 'DOLAR': 'USD', 'DOLARES': 'USD', 'DÓLAR': 'USD', 'DÓLARES': 'USD', 'DOLLAR': 'USD', 'DOLLARS': 'USD', 'USD$': 'USD',
+    'EUR': 'EUR', 'EURO': 'EUR', 'EUROS': 'EUR', '€': 'EUR',
+    'BRL': 'BRL', 'REAL': 'BRL', 'REALES': 'BRL', 'REAIS': 'BRL', 'R$': 'BRL',
+    'UYU': 'UYU', 'PESO URUGUAYO': 'UYU', 'PESOS URUGUAYOS': 'UYU', '$U': 'UYU',
+    'CLP': 'CLP', 'PESO CHILENO': 'CLP', 'PESOS CHILENOS': 'CLP',
+    'COP': 'COP', 'PESO COLOMBIANO': 'COP', 'PESOS COLOMBIANOS': 'COP',
+    'PYG': 'PYG', 'GUARANI': 'PYG', 'GUARANIES': 'PYG', 'GUARANÍ': 'PYG', 'GUARANÍES': 'PYG', 'GS': 'PYG', '₲': 'PYG',
+    'MXN': 'MXN', 'PESO MEXICANO': 'MXN', 'PESOS MEXICANOS': 'MXN',
+    'GBP': 'GBP', 'LIBRA': 'GBP', 'LIBRAS': 'GBP', '£': 'GBP'
+  };
+  if (MAPA[s]) return MAPA[s];
+  return s; // si ya es un código (ej: JPY) o algo desconocido, lo deja en mayúsculas
 }
 
 function agregarAviso_(estado, aviso) { return estado === 'OK' ? ('Revisar: ' + aviso) : (estado + '; ' + aviso); }

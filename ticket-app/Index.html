@@ -50,6 +50,7 @@
     .datos .full{grid-column:1 / -1;}
     .datos label{margin:0 0 4px;font-size:.72rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
     .datos input{padding:10px;font-size:.95rem;}
+    .datos select{padding:10px;font-size:.95rem;}
     .acciones{display:flex;gap:12px;margin-top:22px;}
     .btn{flex:1;padding:16px;border:none;border-radius:14px;font-family:inherit;font-size:1rem;font-weight:700;cursor:pointer;}
     .btn.otro{background:var(--orange);color:#fff;box-shadow:0 4px 14px rgba(241,90,36,.30);}
@@ -132,7 +133,22 @@
           <div><label>Fecha (DD/MM/AAAA)</label><input id="t_fecha"></div>
           <div><label>Importe final</label><input id="t_imp"></div>
           <div class="full"><label>Proveedor</label><input id="t_prov"></div>
-          <div><label>Moneda</label><input id="t_mon" value="ARS"></div>
+          <div><label>Moneda</label>
+            <select id="t_mon" onchange="toggleOtra('t')">
+              <option value="ARS">ARS · Peso argentino</option>
+              <option value="USD">USD · Dólar</option>
+              <option value="EUR">EUR · Euro</option>
+              <option value="BRL">BRL · Real (Brasil)</option>
+              <option value="UYU">UYU · Peso uruguayo</option>
+              <option value="CLP">CLP · Peso chileno</option>
+              <option value="COP">COP · Peso colombiano</option>
+              <option value="PYG">PYG · Guaraní</option>
+              <option value="MXN">MXN · Peso mexicano</option>
+              <option value="GBP">GBP · Libra</option>
+              <option value="OTRA">Otra…</option>
+            </select>
+            <input id="t_monOtra" placeholder="Código, ej: JPY" style="display:none;margin-top:6px;">
+          </div>
         </div>
       </div>
       <div class="estado" id="t_estado">⏳ Leyendo el comprobante…</div>
@@ -184,7 +200,22 @@
           <div><label>Fecha (DD/MM/AAAA)</label><input id="c_fecha"></div>
           <div><label>Importe final</label><input id="c_imp"></div>
           <div class="full"><label>Proveedor</label><input id="c_prov"></div>
-          <div><label>Moneda</label><input id="c_mon" value="ARS"></div>
+          <div><label>Moneda</label>
+            <select id="c_mon" onchange="toggleOtra('c')">
+              <option value="ARS">ARS · Peso argentino</option>
+              <option value="USD">USD · Dólar</option>
+              <option value="EUR">EUR · Euro</option>
+              <option value="BRL">BRL · Real (Brasil)</option>
+              <option value="UYU">UYU · Peso uruguayo</option>
+              <option value="CLP">CLP · Peso chileno</option>
+              <option value="COP">COP · Peso colombiano</option>
+              <option value="PYG">PYG · Guaraní</option>
+              <option value="MXN">MXN · Peso mexicano</option>
+              <option value="GBP">GBP · Libra</option>
+              <option value="OTRA">Otra…</option>
+            </select>
+            <input id="c_monOtra" placeholder="Código, ej: JPY" style="display:none;margin-top:6px;">
+          </div>
         </div>
       </div>
       <div class="estado" id="c_estado">⏳ Leyendo el comprobante…</div>
@@ -320,12 +351,43 @@
       document.getElementById(p+'_estado').style.display='none';
       if(d && d.ok){
         set(p+'_tipo',d.tipoComprobante); set(p+'_fecha',d.fecha); set(p+'_prov',d.proveedor);
-        document.getElementById(p+'_imp').value = fmtAR(d.importe); set(p+'_mon',d.moneda||'ARS');
+        document.getElementById(p+'_imp').value = fmtAR(d.importe); setMoneda(p,d.moneda||'ARS');
       }
       abrirDatos(p);
     }
     function set(id,v){ document.getElementById(id).value = (v===undefined||v===null)?'':v; }
     function fmtAR(v){ if(v===''||v===null||v===undefined) return ''; var n=Number(v); if(isNaN(n)) return String(v); return n.toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:2}); }
+
+    // ── Moneda: normalizar y manejar el desplegable ──────────────────
+    function normMoneda(txt){
+      var s=String(txt||'').trim().toUpperCase().replace(/\./g,'').replace(/\s+/g,' ');
+      var m={'PESO':'ARS','PESOS':'ARS','PESO ARGENTINO':'ARS','PESOS ARGENTINOS':'ARS','$':'ARS','AR$':'ARS',
+        'US$':'USD','U$S':'USD','U$D':'USD','DOLAR':'USD','DOLARES':'USD','DÓLAR':'USD','DÓLARES':'USD','DOLLAR':'USD','DOLLARS':'USD',
+        'EURO':'EUR','EUROS':'EUR','€':'EUR','REAL':'BRL','REALES':'BRL','REAIS':'BRL','R$':'BRL',
+        'PESO URUGUAYO':'UYU','PESOS URUGUAYOS':'UYU','PESO CHILENO':'CLP','PESOS CHILENOS':'CLP',
+        'PESO COLOMBIANO':'COP','PESOS COLOMBIANOS':'COP','GUARANI':'PYG','GUARANIES':'PYG','GS':'PYG',
+        'PESO MEXICANO':'MXN','PESOS MEXICANOS':'MXN','LIBRA':'GBP','LIBRAS':'GBP','£':'GBP'};
+      if(m[s]) return m[s];
+      return s||'ARS';
+    }
+    function toggleOtra(p){
+      var otra=document.getElementById(p+'_monOtra');
+      otra.style.display = (document.getElementById(p+'_mon').value==='OTRA') ? 'block' : 'none';
+    }
+    // Deja el desplegable con la moneda que corresponda (o "Otra" si no está en la lista)
+    function setMoneda(p,val){
+      var code=normMoneda(val), sel=document.getElementById(p+'_mon'), otra=document.getElementById(p+'_monOtra');
+      var existe=false;
+      for(var i=0;i<sel.options.length;i++){ if(sel.options[i].value===code){existe=true;break;} }
+      if(existe){ sel.value=code; otra.value=''; otra.style.display='none'; }
+      else { sel.value='OTRA'; otra.value=code; otra.style.display='block'; }
+    }
+    // Lee la moneda elegida (si es "Otra", toma lo escrito)
+    function getMoneda(p){
+      var sel=document.getElementById(p+'_mon');
+      if(sel.value==='OTRA') return (document.getElementById(p+'_monOtra').value||'').trim();
+      return sel.value;
+    }
     function abrirDatos(p){ document.getElementById(p+'_datos').style.display='block'; }
     function limpiarFoto(p){
       var a=document.getElementById(p+'_foto'); if(a) a.value='';
@@ -368,7 +430,7 @@
         descripcion:(p==='c')?document.getElementById('c_desc').value:'',
         quienGasto:quien, comentario:document.getElementById(p+'_com').value,
         tipoComprobante:document.getElementById(p+'_tipo').value, fecha:document.getElementById(p+'_fecha').value,
-        proveedor:document.getElementById(p+'_prov').value, importe:imp, moneda:document.getElementById(p+'_mon').value,
+        proveedor:document.getElementById(p+'_prov').value, importe:imp, moneda:getMoneda(p),
         imagenBase64:st[p].img, mimeType:st[p].mime
       };
       setBtns(p,true);
@@ -387,6 +449,7 @@
       ['_quien','_com','_tipo','_fecha','_prov','_imp','_cco'].forEach(function(s){ var el=document.getElementById(p+s); if(el) el.value=''; });
       if(p==='c') document.getElementById('c_desc').value='';
       document.getElementById(p+'_mon').value='ARS';
+      var mo=document.getElementById(p+'_monOtra'); if(mo){ mo.value=''; mo.style.display='none'; }
       document.getElementById(p+'_cco').dataset.val='';
       document.getElementById(p+'_ccoOk').style.display='none';
       document.getElementById(p+'_datos').style.display='none';
