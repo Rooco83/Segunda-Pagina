@@ -47,6 +47,8 @@ const ENC_CAJA = [
 ];
 const COL_IMPORTE = 5;      // columna E (IMPORTE) en ambos formatos
 const COL_MONEDA = 6;       // columna F (MONEDA) en ambos formatos
+// Orden en que se muestran las monedas (totales y desplegable). Lo que no esté acá va después.
+const PRIORIDAD_MONEDA = ['ARS', 'USD', 'PYG', 'MXN', 'EUR', 'GBP', 'BRL', 'UYU', 'CLP', 'COP'];
 const HEADER_ROW = 6;       // fila de encabezados
 const FIRST_DATA_ROW = 7;   // primera fila de datos / TOTAL inicial
 const CLR_NAVY = '#00263E';
@@ -391,8 +393,9 @@ function agregarFila_(hoja, valores, monedaTxt) {
     sumas[m] += Number(r[0]) || 0;
   });
   orden.sort(function (a, b) {
-    if (a === CONFIG.MONEDA_ESPERADA) return -1;
-    if (b === CONFIG.MONEDA_ESPERADA) return 1;
+    var ia = PRIORIDAD_MONEDA.indexOf(a); if (ia === -1) ia = 999;
+    var ib = PRIORIDAD_MONEDA.indexOf(b); if (ib === -1) ib = 999;
+    if (ia !== ib) return ia - ib;
     return a < b ? -1 : (a > b ? 1 : 0);
   });
 
