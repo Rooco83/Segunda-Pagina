@@ -361,20 +361,19 @@ function agregarFila_(hoja, valores, monedaTxt) {
   const n = valores.length;
   const last = hoja.getLastRow();
 
-  // 1) Borrar el bloque de TOTALES actual (filas con "TOTAL" en la col A, siempre al final).
-  let dataLast = FIRST_DATA_ROW - 1; // por defecto: todavía no hay datos
+  // 1) Borrar SOLO las filas de TOTAL (donde sea que estén), conservando cualquier carga manual.
   if (last >= FIRST_DATA_ROW) {
     const colA = hoja.getRange(FIRST_DATA_ROW, 1, last - FIRST_DATA_ROW + 1, 1).getValues();
-    let firstTotal = 0;
+    const aBorrar = [];
     for (var i = 0; i < colA.length; i++) {
-      if (String(colA[i][0]).indexOf('TOTAL') === 0) { firstTotal = FIRST_DATA_ROW + i; break; }
+      if (String(colA[i][0]).indexOf('TOTAL') === 0) aBorrar.push(FIRST_DATA_ROW + i);
     }
-    if (firstTotal) { hoja.deleteRows(firstTotal, last - firstTotal + 1); dataLast = firstTotal - 1; }
-    else { dataLast = last; }
+    for (var j = aBorrar.length - 1; j >= 0; j--) hoja.deleteRow(aBorrar[j]); // de abajo hacia arriba
   }
 
-  // 2) Escribir la nueva fila de datos justo debajo de los datos existentes.
-  const fila = dataLast + 1;
+  // 2) Escribir la nueva fila de datos justo debajo de la última fila de datos (ya sin totales).
+  const dataLast = hoja.getLastRow();
+  const fila = (dataLast < FIRST_DATA_ROW) ? FIRST_DATA_ROW : dataLast + 1;
   hoja.getRange(fila, 1, 1, n).setValues([valores]);
   hoja.getRange(fila, 1, 1, n)
     .setBackground(CLR_GRIS).setFontColor(CLR_TEXTO)
