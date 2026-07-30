@@ -355,12 +355,14 @@ function construirFormato_(hoja, nombreCtx, fechaCtx, headers) {
   const rImpT = '$' + impColT + '$' + FIRST_DATA_ROW + ':$' + impColT; // $E$8:$E
   const locT = (function () { try { return hoja.getParent().getSpreadsheetLocale(); } catch (e) { return ''; } })();
   const sepT = (locT && locT.indexOf('en') === 0) ? ',' : ';';
-  const chunksT = PRIORIDAD_MONEDA.map(function (m) {
-    var cnt = 'COUNTIF(' + rMonT + sepT + '"' + m + '")';
-    var sum = 'SUMIF(' + rMonT + sepT + '"' + m + '"' + sepT + rImpT + ')';
-    return 'IF(' + cnt + '=0' + sepT + '""' + sepT + '"' + m + ' "&TEXT(' + sum + sepT + '"#,##0.00"))';
-  });
-  const formulaTot = '="TOTALES POR MONEDA:   "&TEXTJOIN("      "' + sepT + 'TRUE' + sepT + chunksT.join(sepT) + ')';
+  // Detecta TODAS las monedas presentes (las fijas y cualquier custom cargada a mano o con "Otra")
+  // y arma "COD importe" por cada una, sumando en vivo.
+  const s = sepT;
+  const sumif = 'SUMIF(' + rMonT + s + 'c' + s + rImpT + ')';
+  const lambda = 'LAMBDA(c' + s + 'c&" "&TEXT(' + sumif + s + '"#,##0.00"))';
+  const uniq = 'UNIQUE(FILTER(' + rMonT + s + rMonT + '<>""))';
+  const mapa = 'MAP(' + uniq + s + lambda + ')';
+  const formulaTot = '="TOTALES POR MONEDA:   "&IFERROR(TEXTJOIN("      "' + s + 'TRUE' + s + mapa + ')' + s + '"")';
   hoja.getRange(TOTAL_ROW, 1, 1, n).merge()
     .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold')
     .setHorizontalAlignment('left').setVerticalAlignment('middle');
