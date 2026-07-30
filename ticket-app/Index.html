@@ -140,14 +140,11 @@
               <option value="PYG">PYG · Guaraní</option>
               <option value="MXN">MXN · Peso mexicano</option>
               <option value="EUR">EUR · Euro</option>
-              <option value="GBP">GBP · Libra</option>
-              <option value="BRL">BRL · Real (Brasil)</option>
-              <option value="UYU">UYU · Peso uruguayo</option>
               <option value="CLP">CLP · Peso chileno</option>
-              <option value="COP">COP · Peso colombiano</option>
+              <option value="BRL">BRL · Real (Brasil)</option>
               <option value="OTRA">Otra…</option>
             </select>
-            <input id="t_monOtra" placeholder="Código, ej: JPY" style="display:none;margin-top:6px;">
+            <input id="t_monOtra" placeholder="Código, ej: UYU" style="display:none;margin-top:6px;">
           </div>
         </div>
       </div>
@@ -207,14 +204,11 @@
               <option value="PYG">PYG · Guaraní</option>
               <option value="MXN">MXN · Peso mexicano</option>
               <option value="EUR">EUR · Euro</option>
-              <option value="GBP">GBP · Libra</option>
-              <option value="BRL">BRL · Real (Brasil)</option>
-              <option value="UYU">UYU · Peso uruguayo</option>
               <option value="CLP">CLP · Peso chileno</option>
-              <option value="COP">COP · Peso colombiano</option>
+              <option value="BRL">BRL · Real (Brasil)</option>
               <option value="OTRA">Otra…</option>
             </select>
-            <input id="c_monOtra" placeholder="Código, ej: JPY" style="display:none;margin-top:6px;">
+            <input id="c_monOtra" placeholder="Código, ej: UYU" style="display:none;margin-top:6px;">
           </div>
         </div>
       </div>
@@ -366,7 +360,7 @@
         'EURO':'EUR','EUROS':'EUR','€':'EUR','REAL':'BRL','REALES':'BRL','REAIS':'BRL','R$':'BRL',
         'PESO URUGUAYO':'UYU','PESOS URUGUAYOS':'UYU','PESO CHILENO':'CLP','PESOS CHILENOS':'CLP',
         'PESO COLOMBIANO':'COP','PESOS COLOMBIANOS':'COP','GUARANI':'PYG','GUARANIES':'PYG','GS':'PYG',
-        'PESO MEXICANO':'MXN','PESOS MEXICANOS':'MXN','LIBRA':'GBP','LIBRAS':'GBP','£':'GBP'};
+        'PESO MEXICANO':'MXN','PESOS MEXICANOS':'MXN'};
       if(m[s]) return m[s];
       return s||'ARS';
     }

@@ -48,7 +48,7 @@ const ENC_CAJA = [
 const COL_IMPORTE = 5;      // columna E (IMPORTE) en ambos formatos
 const COL_MONEDA = 6;       // columna F (MONEDA) en ambos formatos
 // Orden en que se muestran las monedas (totales y desplegable). Lo que no esté acá va después.
-const PRIORIDAD_MONEDA = ['ARS', 'USD', 'PYG', 'MXN', 'EUR', 'GBP', 'BRL', 'UYU', 'CLP', 'COP'];
+const PRIORIDAD_MONEDA = ['ARS', 'USD', 'PYG', 'MXN', 'EUR', 'CLP', 'BRL'];
 const TOTAL_ROW = 6;        // tira de TOTALES por moneda (horizontal, fija arriba)
 const HEADER_ROW = 7;       // fila de encabezados
 const FIRST_DATA_ROW = 8;   // primera fila de datos
@@ -348,9 +348,23 @@ function construirFormato_(hoja, nombreCtx, fechaCtx, headers) {
   hoja.getRange(5, 1, 1, n).merge().setValue('PLANILLA DE RENDICION')
     .setBackground(CLR_ORANGE).setFontColor('#FFFFFF').setFontWeight('bold').setHorizontalAlignment('center');
 
-  // Tira de TOTALES por moneda (horizontal, fija arriba). Los importes los completa agregarFila_.
-  hoja.getRange(TOTAL_ROW, 1, 1, n).setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setVerticalAlignment('middle');
-  hoja.getRange(TOTAL_ROW, 1).setValue('TOTALES POR MONEDA →').setHorizontalAlignment('left');
+  // Tira de TOTALES por moneda: UNA sola celda arriba, alineada a la izquierda, con fórmula viva.
+  // Muestra solo las monedas que tienen gastos y suma en vivo (incluye cargas manuales).
+  const impColT = columnaLetra_(COL_IMPORTE), monColT = columnaLetra_(COL_MONEDA);
+  const rMonT = '$' + monColT + '$' + FIRST_DATA_ROW + ':$' + monColT; // $F$8:$F
+  const rImpT = '$' + impColT + '$' + FIRST_DATA_ROW + ':$' + impColT; // $E$8:$E
+  const locT = (function () { try { return hoja.getParent().getSpreadsheetLocale(); } catch (e) { return ''; } })();
+  const sepT = (locT && locT.indexOf('en') === 0) ? ',' : ';';
+  const chunksT = PRIORIDAD_MONEDA.map(function (m) {
+    var cnt = 'COUNTIF(' + rMonT + sepT + '"' + m + '")';
+    var sum = 'SUMIF(' + rMonT + sepT + '"' + m + '"' + sepT + rImpT + ')';
+    return 'IF(' + cnt + '=0' + sepT + '""' + sepT + '"' + m + ' "&TEXT(' + sum + sepT + '"#,##0.00"))';
+  });
+  const formulaTot = '="TOTALES POR MONEDA:   "&TEXTJOIN("      "' + sepT + 'TRUE' + sepT + chunksT.join(sepT) + ')';
+  hoja.getRange(TOTAL_ROW, 1, 1, n).merge()
+    .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold')
+    .setHorizontalAlignment('left').setVerticalAlignment('middle');
+  hoja.getRange(TOTAL_ROW, 1).setFormula(formulaTot);
 
   hoja.getRange(HEADER_ROW, 1, 1, n).setValues([headers])
     .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setHorizontalAlignment('center');
@@ -360,25 +374,30 @@ function construirFormato_(hoja, nombreCtx, fechaCtx, headers) {
   for (var i = 0; i < n; i++) hoja.setColumnWidth(i + 1, ANCHO_COL[headers[i]] || 120);
   hoja.getRange(HEADER_ROW, 1, hoja.getMaxRows() - HEADER_ROW + 1, n).setWrap(true);
 
+  // Pre-formato de la zona de datos (gris, bordes, centrado) para que la carga MANUAL se vea IGUAL
+  // que la del app desde la primera carga.
+  const filasZona = Math.min(200, hoja.getMaxRows() - FIRST_DATA_ROW + 1);
+  hoja.getRange(FIRST_DATA_ROW, 1, filasZona, n)
+    .setBackground(CLR_GRIS).setFontColor(CLR_TEXTO)
+    .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true)
+    .setBorder(true, true, true, true, true, true, '#CBD2D9', SpreadsheetApp.BorderStyle.SOLID);
+
   // Validaciones para la carga MANUAL (así el que escribe a mano no se equivoca):
-  const filasDatos = hoja.getMaxRows() - FIRST_DATA_ROW + 1;
-  // IMPORTE: solo números, y formato numérico (la moneda se indica en la columna de al lado).
+  // IMPORTE: solo números (la moneda se indica en la columna de al lado).
   const reglaNum = SpreadsheetApp.newDataValidation()
     .requireNumberGreaterThanOrEqualTo(0).setAllowInvalid(false)
     .setHelpText('Ingresá solo el número del importe (sin símbolos ni moneda).').build();
-  hoja.getRange(FIRST_DATA_ROW, COL_IMPORTE, filasDatos, 1).setDataValidation(reglaNum).setNumberFormat('#,##0.00');
+  hoja.getRange(FIRST_DATA_ROW, COL_IMPORTE, filasZona, 1).setDataValidation(reglaNum).setNumberFormat('#,##0.00');
   // MONEDA: desplegable con las monedas de la app.
   const reglaMon = SpreadsheetApp.newDataValidation()
     .requireValueInList(PRIORIDAD_MONEDA, true).setAllowInvalid(true)
     .setHelpText('Elegí la moneda de la lista.').build();
-  hoja.getRange(FIRST_DATA_ROW, COL_MONEDA, filasDatos, 1).setDataValidation(reglaMon);
+  hoja.getRange(FIRST_DATA_ROW, COL_MONEDA, filasZona, 1).setDataValidation(reglaMon);
 }
 
-// Inserta una fila de datos al final y refresca la tira de TOTALES por moneda (arriba).
+// Inserta una fila de datos al final. La tira de TOTALES es una fórmula fija que se actualiza sola.
 function agregarFila_(hoja, valores, monedaTxt) {
   const n = valores.length;
-
-  // 1) La nueva fila va al final de los datos (ya no hay filas de TOTAL entre los datos).
   const last = hoja.getLastRow();
   const fila = (last < FIRST_DATA_ROW) ? FIRST_DATA_ROW : last + 1;
   hoja.getRange(fila, 1, 1, n).setValues([valores]);
@@ -387,44 +406,7 @@ function agregarFila_(hoja, valores, monedaTxt) {
     .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true)
     .setBorder(true, true, true, true, true, true, '#CBD2D9', SpreadsheetApp.BorderStyle.SOLID);
   hoja.getRange(fila, COL_IMPORTE).setNumberFormat('#,##0.00');
-
-  // 2) Refrescar la tira de totales por moneda (arriba, horizontal, con fórmula viva).
-  actualizarTotales_(hoja, n);
   return fila;
-}
-
-// Reescribe la tira de TOTALES por moneda (fila TOTAL_ROW): un importe por moneda, con
-// fórmula viva de RANGO ABIERTO (E8:E / F8:F), así también suma las cargas manuales al instante.
-function actualizarTotales_(hoja, n) {
-  const last = hoja.getLastRow();
-  const orden = [];
-  if (last >= FIRST_DATA_ROW) {
-    const monVals = hoja.getRange(FIRST_DATA_ROW, COL_MONEDA, last - FIRST_DATA_ROW + 1, 1).getValues();
-    monVals.forEach(function (r) { const m = String(r[0]).trim(); if (m && orden.indexOf(m) === -1) orden.push(m); });
-  }
-  orden.sort(function (a, b) {
-    var ia = PRIORIDAD_MONEDA.indexOf(a); if (ia === -1) ia = 999;
-    var ib = PRIORIDAD_MONEDA.indexOf(b); if (ib === -1) ib = 999;
-    if (ia !== ib) return ia - ib;
-    return a < b ? -1 : (a > b ? 1 : 0);
-  });
-
-  // Limpiar la zona de importes de la tira (de COL_IMPORTE hasta la última columna) y reescribir.
-  hoja.getRange(TOTAL_ROW, COL_IMPORTE, 1, n - COL_IMPORTE + 1).clearContent();
-  const impCol = columnaLetra_(COL_IMPORTE), monCol = columnaLetra_(COL_MONEDA);
-  const rMon = monCol + FIRST_DATA_ROW + ':' + monCol; // rango abierto: F8:F
-  const rImp = impCol + FIRST_DATA_ROW + ':' + impCol; // rango abierto: E8:E
-  const loc = (function () { try { return hoja.getParent().getSpreadsheetLocale(); } catch (e) { return ''; } })();
-  const sep = (loc && loc.indexOf('en') === 0) ? ',' : ';'; // es/pt usan ";", en_US usa ","
-  orden.forEach(function (m, idx) {
-    const col = COL_IMPORTE + idx;
-    if (col > n) return; // no hay más columnas disponibles en la tira
-    const f = '=SUMIF(' + rMon + sep + '"' + m + '"' + sep + rImp + ')';
-    hoja.getRange(TOTAL_ROW, col).setFormula(f)
-      .setNumberFormat('"' + m + ' "#,##0.00')
-      .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold')
-      .setHorizontalAlignment('center').setVerticalAlignment('middle');
-  });
 }
 
 function columnaLetra_(num) {
@@ -514,8 +496,7 @@ function normalizarMoneda_(txt) {
     'CLP': 'CLP', 'PESO CHILENO': 'CLP', 'PESOS CHILENOS': 'CLP',
     'COP': 'COP', 'PESO COLOMBIANO': 'COP', 'PESOS COLOMBIANOS': 'COP',
     'PYG': 'PYG', 'GUARANI': 'PYG', 'GUARANIES': 'PYG', 'GUARANÍ': 'PYG', 'GUARANÍES': 'PYG', 'GS': 'PYG', '₲': 'PYG',
-    'MXN': 'MXN', 'PESO MEXICANO': 'MXN', 'PESOS MEXICANOS': 'MXN',
-    'GBP': 'GBP', 'LIBRA': 'GBP', 'LIBRAS': 'GBP', '£': 'GBP'
+    'MXN': 'MXN', 'PESO MEXICANO': 'MXN', 'PESOS MEXICANOS': 'MXN'
   };
   if (MAPA[s]) return MAPA[s];
   return s; // si ya es un código (ej: JPY) o algo desconocido, lo deja en mayúsculas
