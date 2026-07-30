@@ -49,8 +49,9 @@ const COL_IMPORTE = 5;      // columna E (IMPORTE) en ambos formatos
 const COL_MONEDA = 6;       // columna F (MONEDA) en ambos formatos
 // Orden en que se muestran las monedas (totales y desplegable). Lo que no esté acá va después.
 const PRIORIDAD_MONEDA = ['ARS', 'USD', 'PYG', 'MXN', 'EUR', 'GBP', 'BRL', 'UYU', 'CLP', 'COP'];
-const HEADER_ROW = 6;       // fila de encabezados
-const FIRST_DATA_ROW = 7;   // primera fila de datos / TOTAL inicial
+const TOTAL_ROW = 6;        // tira de TOTALES por moneda (horizontal, fija arriba)
+const HEADER_ROW = 7;       // fila de encabezados
+const FIRST_DATA_ROW = 8;   // primera fila de datos
 const CLR_NAVY = '#00263E';
 const CLR_ORANGE = '#F15A24';
 const CLR_GRIS = '#F1F3F5';   // fondo gris clarito de las filas de datos
@@ -347,6 +348,10 @@ function construirFormato_(hoja, nombreCtx, fechaCtx, headers) {
   hoja.getRange(5, 1, 1, n).merge().setValue('PLANILLA DE RENDICION')
     .setBackground(CLR_ORANGE).setFontColor('#FFFFFF').setFontWeight('bold').setHorizontalAlignment('center');
 
+  // Tira de TOTALES por moneda (horizontal, fija arriba). Los importes los completa agregarFila_.
+  hoja.getRange(TOTAL_ROW, 1, 1, n).setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setVerticalAlignment('middle');
+  hoja.getRange(TOTAL_ROW, 1).setValue('TOTALES POR MONEDA →').setHorizontalAlignment('left');
+
   hoja.getRange(HEADER_ROW, 1, 1, n).setValues([headers])
     .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setHorizontalAlignment('center');
 
@@ -356,24 +361,13 @@ function construirFormato_(hoja, nombreCtx, fechaCtx, headers) {
   hoja.getRange(HEADER_ROW, 1, hoja.getMaxRows() - HEADER_ROW + 1, n).setWrap(true);
 }
 
-// Inserta una fila de datos y arma UN TOTAL por cada moneda presente (desglose por moneda).
+// Inserta una fila de datos al final y refresca la tira de TOTALES por moneda (arriba).
 function agregarFila_(hoja, valores, monedaTxt) {
   const n = valores.length;
+
+  // 1) La nueva fila va al final de los datos (ya no hay filas de TOTAL entre los datos).
   const last = hoja.getLastRow();
-
-  // 1) Borrar SOLO las filas de TOTAL (donde sea que estén), conservando cualquier carga manual.
-  if (last >= FIRST_DATA_ROW) {
-    const colA = hoja.getRange(FIRST_DATA_ROW, 1, last - FIRST_DATA_ROW + 1, 1).getValues();
-    const aBorrar = [];
-    for (var i = 0; i < colA.length; i++) {
-      if (String(colA[i][0]).indexOf('TOTAL') === 0) aBorrar.push(FIRST_DATA_ROW + i);
-    }
-    for (var j = aBorrar.length - 1; j >= 0; j--) hoja.deleteRow(aBorrar[j]); // de abajo hacia arriba
-  }
-
-  // 2) Escribir la nueva fila de datos justo debajo de la última fila de datos (ya sin totales).
-  const dataLast = hoja.getLastRow();
-  const fila = (dataLast < FIRST_DATA_ROW) ? FIRST_DATA_ROW : dataLast + 1;
+  const fila = (last < FIRST_DATA_ROW) ? FIRST_DATA_ROW : last + 1;
   hoja.getRange(fila, 1, 1, n).setValues([valores]);
   hoja.getRange(fila, 1, 1, n)
     .setBackground(CLR_GRIS).setFontColor(CLR_TEXTO)
@@ -381,11 +375,20 @@ function agregarFila_(hoja, valores, monedaTxt) {
     .setBorder(true, true, true, true, true, true, '#CBD2D9', SpreadsheetApp.BorderStyle.SOLID);
   hoja.getRange(fila, COL_IMPORTE).setNumberFormat('"' + monedaTxt + ' "#,##0.00');
 
-  // 3) Monedas presentes en los datos (incluye cargas manuales), en el orden definido.
-  const dataFirst = FIRST_DATA_ROW, dataUlt = fila;
-  const monVals = hoja.getRange(dataFirst, COL_MONEDA, dataUlt - dataFirst + 1, 1).getValues();
+  // 2) Refrescar la tira de totales por moneda (arriba, horizontal, con fórmula viva).
+  actualizarTotales_(hoja, n);
+  return fila;
+}
+
+// Reescribe la tira de TOTALES por moneda (fila TOTAL_ROW): un importe por moneda, con
+// fórmula viva de RANGO ABIERTO (E8:E / F8:F), así también suma las cargas manuales al instante.
+function actualizarTotales_(hoja, n) {
+  const last = hoja.getLastRow();
   const orden = [];
-  monVals.forEach(function (r) { const m = String(r[0]).trim(); if (m && orden.indexOf(m) === -1) orden.push(m); });
+  if (last >= FIRST_DATA_ROW) {
+    const monVals = hoja.getRange(FIRST_DATA_ROW, COL_MONEDA, last - FIRST_DATA_ROW + 1, 1).getValues();
+    monVals.forEach(function (r) { const m = String(r[0]).trim(); if (m && orden.indexOf(m) === -1) orden.push(m); });
+  }
   orden.sort(function (a, b) {
     var ia = PRIORIDAD_MONEDA.indexOf(a); if (ia === -1) ia = 999;
     var ib = PRIORIDAD_MONEDA.indexOf(b); if (ib === -1) ib = 999;
@@ -393,21 +396,22 @@ function agregarFila_(hoja, valores, monedaTxt) {
     return a < b ? -1 : (a > b ? 1 : 0);
   });
 
-  // 4) Un TOTAL por moneda con FÓRMULA VIVA (SUMIF): se actualiza sola si cargan a mano.
-  //    El rango va solo sobre las filas de datos (los TOTALES quedan debajo, fuera del rango).
+  // Limpiar la zona de importes de la tira (de COL_IMPORTE hasta la última columna) y reescribir.
+  hoja.getRange(TOTAL_ROW, COL_IMPORTE, 1, n - COL_IMPORTE + 1).clearContent();
   const impCol = columnaLetra_(COL_IMPORTE), monCol = columnaLetra_(COL_MONEDA);
-  const rMon = monCol + dataFirst + ':' + monCol + dataUlt;
-  const rImp = impCol + dataFirst + ':' + impCol + dataUlt;
+  const rMon = monCol + FIRST_DATA_ROW + ':' + monCol; // rango abierto: F8:F
+  const rImp = impCol + FIRST_DATA_ROW + ':' + impCol; // rango abierto: E8:E
   const loc = (function () { try { return hoja.getParent().getSpreadsheetLocale(); } catch (e) { return ''; } })();
   const sep = (loc && loc.indexOf('en') === 0) ? ',' : ';'; // es/pt usan ";", en_US usa ","
   orden.forEach(function (m, idx) {
-    const r = dataUlt + 1 + idx;
-    hoja.getRange(r, 1, 1, n).setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setVerticalAlignment('middle');
-    hoja.getRange(r, 1).setValue('TOTAL ' + m);
+    const col = COL_IMPORTE + idx;
+    if (col > n) return; // no hay más columnas disponibles en la tira
     const f = '=SUMIF(' + rMon + sep + '"' + m + '"' + sep + rImp + ')';
-    hoja.getRange(r, COL_IMPORTE).setFormula(f).setNumberFormat('"' + m + ' "#,##0.00');
+    hoja.getRange(TOTAL_ROW, col).setFormula(f)
+      .setNumberFormat('"' + m + ' "#,##0.00')
+      .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold')
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
   });
-  return fila;
 }
 
 function columnaLetra_(num) {
