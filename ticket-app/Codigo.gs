@@ -359,6 +359,19 @@ function construirFormato_(hoja, nombreCtx, fechaCtx, headers) {
   // Anchos fijos + texto que se ajusta dentro de la celda (wrap)
   for (var i = 0; i < n; i++) hoja.setColumnWidth(i + 1, ANCHO_COL[headers[i]] || 120);
   hoja.getRange(HEADER_ROW, 1, hoja.getMaxRows() - HEADER_ROW + 1, n).setWrap(true);
+
+  // Validaciones para la carga MANUAL (así el que escribe a mano no se equivoca):
+  const filasDatos = hoja.getMaxRows() - FIRST_DATA_ROW + 1;
+  // IMPORTE: solo números, y formato numérico (la moneda se indica en la columna de al lado).
+  const reglaNum = SpreadsheetApp.newDataValidation()
+    .requireNumberGreaterThanOrEqualTo(0).setAllowInvalid(false)
+    .setHelpText('Ingresá solo el número del importe (sin símbolos ni moneda).').build();
+  hoja.getRange(FIRST_DATA_ROW, COL_IMPORTE, filasDatos, 1).setDataValidation(reglaNum).setNumberFormat('#,##0.00');
+  // MONEDA: desplegable con las monedas de la app.
+  const reglaMon = SpreadsheetApp.newDataValidation()
+    .requireValueInList(PRIORIDAD_MONEDA, true).setAllowInvalid(true)
+    .setHelpText('Elegí la moneda de la lista.').build();
+  hoja.getRange(FIRST_DATA_ROW, COL_MONEDA, filasDatos, 1).setDataValidation(reglaMon);
 }
 
 // Inserta una fila de datos al final y refresca la tira de TOTALES por moneda (arriba).
@@ -373,7 +386,7 @@ function agregarFila_(hoja, valores, monedaTxt) {
     .setBackground(CLR_GRIS).setFontColor(CLR_TEXTO)
     .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true)
     .setBorder(true, true, true, true, true, true, '#CBD2D9', SpreadsheetApp.BorderStyle.SOLID);
-  hoja.getRange(fila, COL_IMPORTE).setNumberFormat('"' + monedaTxt + ' "#,##0.00');
+  hoja.getRange(fila, COL_IMPORTE).setNumberFormat('#,##0.00');
 
   // 2) Refrescar la tira de totales por moneda (arriba, horizontal, con fórmula viva).
   actualizarTotales_(hoja, n);
