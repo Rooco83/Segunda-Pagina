@@ -381,16 +381,11 @@ function agregarFila_(hoja, valores, monedaTxt) {
     .setBorder(true, true, true, true, true, true, '#CBD2D9', SpreadsheetApp.BorderStyle.SOLID);
   hoja.getRange(fila, COL_IMPORTE).setNumberFormat('"' + monedaTxt + ' "#,##0.00');
 
-  // 3) Sumar importes por moneda (calculado acá, sin fórmula, para evitar problemas de idioma).
+  // 3) Monedas presentes en los datos (incluye cargas manuales), en el orden definido.
   const dataFirst = FIRST_DATA_ROW, dataUlt = fila;
-  const region = hoja.getRange(dataFirst, COL_IMPORTE, dataUlt - dataFirst + 1, 2).getValues(); // [importe, moneda]
-  const sumas = {}, orden = [];
-  region.forEach(function (r) {
-    const m = String(r[1]).trim();
-    if (!m) return;
-    if (!(m in sumas)) { sumas[m] = 0; orden.push(m); }
-    sumas[m] += Number(r[0]) || 0;
-  });
+  const monVals = hoja.getRange(dataFirst, COL_MONEDA, dataUlt - dataFirst + 1, 1).getValues();
+  const orden = [];
+  monVals.forEach(function (r) { const m = String(r[0]).trim(); if (m && orden.indexOf(m) === -1) orden.push(m); });
   orden.sort(function (a, b) {
     var ia = PRIORIDAD_MONEDA.indexOf(a); if (ia === -1) ia = 999;
     var ib = PRIORIDAD_MONEDA.indexOf(b); if (ib === -1) ib = 999;
@@ -398,12 +393,19 @@ function agregarFila_(hoja, valores, monedaTxt) {
     return a < b ? -1 : (a > b ? 1 : 0);
   });
 
-  // 4) Escribir un TOTAL por moneda.
+  // 4) Un TOTAL por moneda con FÓRMULA VIVA (SUMIF): se actualiza sola si cargan a mano.
+  //    El rango va solo sobre las filas de datos (los TOTALES quedan debajo, fuera del rango).
+  const impCol = columnaLetra_(COL_IMPORTE), monCol = columnaLetra_(COL_MONEDA);
+  const rMon = monCol + dataFirst + ':' + monCol + dataUlt;
+  const rImp = impCol + dataFirst + ':' + impCol + dataUlt;
+  const loc = (function () { try { return hoja.getParent().getSpreadsheetLocale(); } catch (e) { return ''; } })();
+  const sep = (loc && loc.indexOf('en') === 0) ? ',' : ';'; // es/pt usan ";", en_US usa ","
   orden.forEach(function (m, idx) {
     const r = dataUlt + 1 + idx;
     hoja.getRange(r, 1, 1, n).setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setVerticalAlignment('middle');
     hoja.getRange(r, 1).setValue('TOTAL ' + m);
-    hoja.getRange(r, COL_IMPORTE).setValue(sumas[m]).setNumberFormat('"' + m + ' "#,##0.00');
+    const f = '=SUMIF(' + rMon + sep + '"' + m + '"' + sep + rImp + ')';
+    hoja.getRange(r, COL_IMPORTE).setFormulaLocal(f).setNumberFormat('"' + m + ' "#,##0.00');
   });
   return fila;
 }
