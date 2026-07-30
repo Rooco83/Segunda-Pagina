@@ -405,7 +405,7 @@ function agregarFila_(hoja, valores, monedaTxt) {
     hoja.getRange(r, 1, 1, n).setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setVerticalAlignment('middle');
     hoja.getRange(r, 1).setValue('TOTAL ' + m);
     const f = '=SUMIF(' + rMon + sep + '"' + m + '"' + sep + rImp + ')';
-    hoja.getRange(r, COL_IMPORTE).setFormulaLocal(f).setNumberFormat('"' + m + ' "#,##0.00');
+    hoja.getRange(r, COL_IMPORTE).setFormula(f).setNumberFormat('"' + m + ' "#,##0.00');
   });
   return fila;
 }
