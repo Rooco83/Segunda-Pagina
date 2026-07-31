@@ -101,8 +101,49 @@ const DB = (() => {
     },
     borrarFoto: (id) => tx('fotos', 'readwrite', st => st.delete(id)),
     fotosPendientes: () => todos('fotos').then(fs =>
-      fs.filter(f => f.estadoDrive === 'pendiente' || f.estadoDrive === 'error'))
+      fs.filter(f => f.estadoDrive === 'pendiente' || f.estadoDrive === 'error')),
+
+    /* busca un proyecto por nombre (para juntar local + Drive al sincronizar) */
+    proyectoPorNombre: (nombre) => todos('proyectos').then(ps =>
+      ps.find(p => p.nombre === nombre) || null),
+
+    /* crea una foto ya "traída de Drive" (sin imágenes locales; se bajan al abrir) */
+    crearFotoRemota: (proyectoId, datos) => {
+      const f = Object.assign({
+        id: datos.id || uid(), proyectoId, creado: datos.creado || Date.now(),
+        blobOriginal: null, proxy: null, thumb: null, blobFinal: null,
+        anotaciones: datos.anotaciones || [],
+        n: datos.n || 0,
+        driveFileId: datos.driveFileId || null,   // JPG final en Drive
+        driveOrigId: datos.driveOrigId || null,   // original sin anotar en .datos
+        estadoDrive: 'subida'
+      }, {});
+      if (datos.thumbB64) f.thumb = dataURLaBlob('data:image/jpeg;base64,' + datos.thumbB64);
+      return tx('fotos', 'readwrite', st => st.add(f)).then(() => f);
+    },
+
+    escalar,          // reduce un blob a maxLado (px)
+    blobABase64,      // blob -> base64 (sin encabezado)
+    todosProyectos: () => todos('proyectos'),
+    todasFotos: () => todos('fotos')
   };
+
+  function dataURLaBlob(dataURL) {
+    const [cab, b64] = dataURL.split(',');
+    const mime = (cab.match(/:(.*?);/) || [])[1] || 'image/jpeg';
+    const bin = atob(b64);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  }
+  function blobABase64(blob) {
+    return new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result.split(',')[1]);
+      r.onerror = () => rej(r.error);
+      r.readAsDataURL(blob);
+    });
+  }
 
   /* reduce un JPEG a maxLado (px del lado más largo) */
   async function escalar(blob, maxLado, calidad) {

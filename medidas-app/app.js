@@ -324,12 +324,24 @@ const App = (() => {
     const txt = btn && btn.textContent;
     try {
       await GAuth.entrar();
-      toast('✓ Entraste con Google — tus fotos van a tu Drive');
-      Drive.procesarCola(alCambiarEstadoFoto);
+      toast('✓ Entraste con Google');
+      sincronizarYRefrescar();
     } catch (e) {
       toast('No se pudo entrar: ' + (e.message || e), 4000);
     }
     if (btn && txt) btn.textContent = txt;
+  }
+
+  /* baja de Drive lo que falte + sube lo local, y refresca la pantalla */
+  async function sincronizarYRefrescar() {
+    if (!Drive.activo()) return;
+    toast('Sincronizando con tu Drive…', 60000);
+    try { await Drive.sincronizar(alCambiarEstadoFoto); } catch (e) {}
+    toast('✓ Sincronizado', 1800);
+    const homeVisible = !document.getElementById('scr-home').classList.contains('oculto');
+    const projVisible = !document.getElementById('scr-proj').classList.contains('oculto');
+    if (homeVisible) irHome();
+    else if (projVisible && proyectoActual) abrirProyecto(proyectoActual.id);
   }
 
   /* ══════════ wiring ══════════ */
@@ -406,7 +418,10 @@ const App = (() => {
     Camara.init();
     irHome();
     refrescarSesion();
-    GAuth.init().then(() => { refrescarSesion(); Drive.procesarCola(alCambiarEstadoFoto); }).catch(() => {});
+    GAuth.init().then(() => {
+      refrescarSesion();
+      if (GAuth.estaLogueado()) sincronizarYRefrescar();
+    }).catch(() => {});
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(() => {});

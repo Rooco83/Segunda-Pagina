@@ -16,6 +16,7 @@ const Editor = (() => {
   /* ── estado ── */
   let foto = null, proyecto = null;
   let img = null, imgURL = '', W = 0, H = 0, base = 0;
+  let origSesion = null;   // original a máxima resolución para exportar (no se persiste)
   let annos = [], sel = -1;
   let vista = { x: 0, y: 0, w: 100, h: 100 };
   let historia = [], futuro = [];
@@ -681,9 +682,10 @@ const Editor = (() => {
      si ya se liberó, exportamos a la resolución del proxy. */
   async function exportarBlob() {
     let bg = img, bw = W, bh = H, urlTmp = null;
-    if (foto && foto.blobOriginal) {
+    const fullRes = (foto && foto.blobOriginal) || origSesion;
+    if (fullRes) {
       try {
-        const r = await cargarImg(foto.blobOriginal);
+        const r = await cargarImg(fullRes);
         bg = r.im; urlTmp = r.u;
         bw = r.im.naturalWidth; bh = r.im.naturalHeight;
       } catch {}
@@ -763,11 +765,32 @@ const Editor = (() => {
     annos = JSON.parse(JSON.stringify(foto.anotaciones || []));
     sel = -1; historia = []; futuro = [];
 
-    // imagen de edición: el proxy liviano; si no está, el original o la miniatura;
-    // y si ya se liberó todo, se baja de Drive.
-    let fuente = foto.proxy || foto.blobOriginal || foto.thumb;
+    // imagen de EDICIÓN = proxy 1600px (así las cotas coinciden en cualquier teléfono).
+    // Si no hay proxy local, se baja el original de Drive y se regenera.
+    origSesion = foto.blobOriginal || null;
+    let proxyBlob = foto.proxy;
+    if (!proxyBlob) {
+      let orig = foto.blobOriginal;
+      if (!orig && foto.driveOrigId && Drive.activo()) {
+        App.toast('Bajando la foto de tu Drive…');
+        try { orig = await Drive.descargar(foto.driveOrigId); } catch {}
+      }
+      if (orig) {
+        origSesion = orig;
+        proxyBlob = await DB.escalar(orig, 1600, 0.82);
+        foto.proxy = proxyBlob;                       // cache local para próximas veces
+        if (!foto.thumb) foto.thumb = await DB.escalar(orig, 480, 0.72);
+        await DB.guardarFoto(foto);
+      }
+    }
+    // si vino de Drive y no se pudo bajar el original, la miniatura no sirve para
+    // editar (las cotas quedarían desalineadas): pedimos señal y salimos.
+    if (!proxyBlob && (foto.anotaciones || []).length && foto.driveOrigId) {
+      App.toast('Necesitás señal para abrir esta foto la primera vez (se baja de tu Drive)', 4200);
+      return;
+    }
+    let fuente = proxyBlob || foto.thumb;
     if (!fuente && foto.driveFileId && Drive.activo()) {
-      App.toast('Bajando la foto de tu Drive…');
       try { fuente = await Drive.descargar(foto.driveFileId); } catch {}
     }
     if (!fuente) { App.toast('No se pudo abrir la foto'); return; }
@@ -786,7 +809,7 @@ const Editor = (() => {
   function cerrar() {
     if (imgURL) { URL.revokeObjectURL(imgURL); imgURL = ''; }
     svg().innerHTML = '';
-    foto = null; img = null; annos = [];
+    foto = null; img = null; annos = []; origSesion = null;
   }
 
   /* ══════════════ wiring ══════════════ */
