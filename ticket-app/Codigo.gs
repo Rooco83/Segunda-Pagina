@@ -328,30 +328,10 @@ function getSpreadsheetIn_(folder, nombre) {
   const it = folder.getFilesByName(nombre);
   if (it.hasNext()) return SpreadsheetApp.open(it.next());
   const ss = SpreadsheetApp.create(nombre);
-  const file = DriveApp.getFileById(ss.getId());
-  file.moveTo(folder);
-  darAccesoDeEdicion_(file, folder);
+  DriveApp.getFileById(ss.getId()).moveTo(folder);
+  // Nota: la edición para el equipo se resuelve compartiendo la CARPETA como "Editor" (una vez),
+  // así los archivos de adentro se heredan editables sin mandar mails de "compartí un archivo".
   return ss;
-}
-
-// Da permiso de EDICIÓN a quienes tienen acceso a la carpeta, para que las planillas NO queden
-// en solo lectura para el resto del equipo.
-function darAccesoDeEdicion_(file, folder) {
-  // 1) Si la carpeta se comparte por link (dominio o cualquiera), replicar ese acceso como EDITOR.
-  try {
-    const acc = folder.getSharingAccess();
-    if (acc === DriveApp.Access.DOMAIN || acc === DriveApp.Access.DOMAIN_WITH_LINK ||
-        acc === DriveApp.Access.ANYONE || acc === DriveApp.Access.ANYONE_WITH_LINK) {
-      file.setSharing(acc, DriveApp.Permission.EDIT);
-    }
-  } catch (e) {}
-  // 2) Personas explícitas de la carpeta (lectores y editores) → editores del archivo.
-  try {
-    const mails = {};
-    folder.getEditors().forEach(function (u) { mails[u.getEmail()] = true; });
-    folder.getViewers().forEach(function (u) { mails[u.getEmail()] = true; });
-    Object.keys(mails).forEach(function (m) { if (m) { try { file.addEditor(m); } catch (e) {} } });
-  } catch (e) {}
 }
 
 function getOrCreateHoja_(ss, solapa, nombreCtx, fechaCtx, headers) {
