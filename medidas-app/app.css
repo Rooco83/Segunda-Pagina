@@ -219,6 +219,14 @@ img.proj-thumb{display:block;}
 .tbtn .i{width:23px;height:23px;}
 .tbtn.sel{background:var(--naranja);color:#fff;}
 .stepper{display:inline-flex;gap:7px;flex-shrink:0;}
+.ed-contexto{display:flex;justify-content:center;gap:10px;padding:0 8px 6px;flex-shrink:0;}
+.ctx-btn{
+  display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.09);
+  color:#dbe2e8;font-size:12.5px;font-weight:700;padding:10px 15px;border-radius:12px;
+}
+.ctx-btn svg{width:18px;height:18px;}
+.ctx-btn:active{transform:scale(.97);}
+.ctx-btn.activo{background:var(--naranja);color:#fff;}
 .ed-tools{
   display:flex;justify-content:space-around;gap:2px;
   padding:9px 4px calc(12px + env(safe-area-inset-bottom));flex-shrink:0;

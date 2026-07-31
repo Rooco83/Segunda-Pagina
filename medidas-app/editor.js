@@ -315,6 +315,35 @@ const Editor = (() => {
     const u = sel >= 0 ? (annos[sel].u || '') : (Ajustes.unidad || 'm');
     document.querySelectorAll('#ed-props .unidad').forEach(b =>
       b.classList.toggle('sel', b.dataset.u === u));
+
+    // barra contextual (girar / fijar eje): solo para cota o flecha seleccionada
+    const seleccion = sel >= 0 ? annos[sel] : null;
+    const esLinea = seleccion && (seleccion.t === 'cota' || seleccion.t === 'flecha');
+    $('ed-contexto').classList.toggle('oculto', !esLinea);
+    $('ctx-eje').classList.toggle('activo', !!(esLinea && seleccion.lock));
+  }
+
+  /* gira la cota/flecha seleccionada 90° alrededor de su centro */
+  function rotarSel() {
+    if (sel < 0) return;
+    const a = annos[sel];
+    if (a.t !== 'cota' && a.t !== 'flecha') return;
+    pushHist(snap());
+    const mx = (a.x1 + a.x2) / 2, my = (a.y1 + a.y2) / 2;
+    const rot = (x, y) => ({ x: mx - (y - my), y: my + (x - mx) });
+    const p1 = rot(a.x1, a.y1), p2 = rot(a.x2, a.y2);
+    a.x1 = p1.x; a.y1 = p1.y; a.x2 = p2.x; a.y2 = p2.y;
+    guardarBorrador();
+    render();
+  }
+
+  function toggleEje() {
+    if (sel < 0) return;
+    const a = annos[sel];
+    if (a.t !== 'cota' && a.t !== 'flecha') return;
+    a.lock = !a.lock;
+    guardarBorrador();
+    render();
   }
 
   /* ══════════════ historial ══════════════ */
@@ -506,7 +535,14 @@ const Editor = (() => {
       render();
     } else if (modo === 'cuerpo') {
       const p = punto(ev);
-      mover(annos[arrastre.hit], p.x - arrastre.ult.x, p.y - arrastre.ult.y);
+      const a = annos[arrastre.hit];
+      let dx = p.x - arrastre.ult.x, dy = p.y - arrastre.ult.y;
+      // "fijar eje": cota/flecha vertical → solo a los costados; horizontal → solo arriba/abajo
+      if (a.lock && (a.t === 'cota' || a.t === 'flecha')) {
+        const vertical = Math.abs(a.y2 - a.y1) >= Math.abs(a.x2 - a.x1);
+        if (vertical) dy = 0; else dx = 0;
+      }
+      mover(a, dx, dy);
       arrastre.ult = p;
       render();
     } else if (modo === 'pan') {
@@ -798,6 +834,8 @@ const Editor = (() => {
       if (a) aplicarProp({ grosor }); else guardarDefaults({ grosor });
     });
 
+    $('ctx-rotar').addEventListener('click', rotarSel);
+    $('ctx-eje').addEventListener('click', toggleEje);
     $('ed-undo').addEventListener('click', undo);
     $('ed-redo').addEventListener('click', redo);
     $('ed-borrar').addEventListener('click', () => {

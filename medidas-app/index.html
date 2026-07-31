@@ -152,14 +152,23 @@
       <button class="unidad" data-u="m">m</button>
       <button class="unidad" data-u="cm">cm</button>
       <button class="unidad" data-u="mm">mm</button>
-      <button class="unidad" data-u="in">in</button>
-      <button class="unidad" data-u="ft">ft</button>
       <span class="sep"></span>
       <span class="stepper">
         <button class="tbtn" id="ed-txt-menos">A−</button>
         <button class="tbtn grande" id="ed-txt-mas">A+</button>
       </span>
     </div>
+  </div>
+
+  <div class="ed-contexto oculto" id="ed-contexto">
+    <button class="ctx-btn" id="ctx-rotar">
+      <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 6.6M20 5v6h-6"/></svg>
+      Girar 90°
+    </button>
+    <button class="ctx-btn" id="ctx-eje">
+      <svg viewBox="0 0 24 24"><path d="M12 3v18M8.5 6.5L12 3l3.5 3.5M8.5 17.5L12 21l3.5-3.5"/></svg>
+      Fijar eje
+    </button>
   </div>
 
   <nav class="ed-tools">
@@ -203,7 +212,7 @@
       <div class="lbl">Valores por defecto</div>
       <label class="aj-label">Unidad de las cotas</label>
       <div class="aj-chips" id="aj-unidades">
-        <button data-u="m">m</button><button data-u="cm">cm</button><button data-u="mm">mm</button><button data-u="in">in</button><button data-u="ft">ft</button>
+        <button data-u="m">m</button><button data-u="cm">cm</button><button data-u="mm">mm</button>
       </div>
       <label class="aj-label" for="aj-calidad">Calidad del JPG final</label>
       <select id="aj-calidad">
