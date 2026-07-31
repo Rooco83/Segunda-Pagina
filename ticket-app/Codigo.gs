@@ -261,6 +261,13 @@ function procesarTicket(p) {
     const headers = esTarjeta ? ENC_TARJETA : ENC_CAJA;
     const ss = getSpreadsheetIn_(carpetaDestino, ssName);
     const hoja = getOrCreateHoja_(ss, solapa, esTarjeta ? (p.titular || '') : (p.cco || ''), esTarjeta ? solapa : '', headers);
+
+    // Chequeo de DUPLICADO (misma fecha, proveedor, importe y moneda). Si no lo fuerzan, avisar sin guardar.
+    const dupOrden = buscarDuplicado_(hoja, p);
+    if (dupOrden && !p.forzar) {
+      return { ok: false, duplicado: true, ordenExistente: dupOrden, moneda: normalizarMoneda_(p.moneda) };
+    }
+
     // Imágenes: en Tarjeta, además se separan por solapa (ej: Imágenes/Mayo 2026/).
     let carpetaImg = getOrCreateSubcarpeta_(carpetaDestino, CONFIG.CARPETA_IMAGENES);
     if (esTarjeta) carpetaImg = getOrCreateSubcarpeta_(carpetaImg, limpiarNombre_(solapa));
@@ -269,6 +276,7 @@ function procesarTicket(p) {
     const ordenTxt = String(orden).padStart(4, '0');
 
     let estado = 'OK';
+    if (dupOrden) estado = agregarAviso_(estado, 'posible duplicado del #' + dupOrden);
     if (fueraDeVto) estado = agregarAviso_(estado, 'fecha fuera de los vencimientos');
     if (!p.importe) estado = agregarAviso_(estado, 'sin importe');
 
@@ -292,7 +300,7 @@ function procesarTicket(p) {
       ? comun.concat([p.titular || '', p.cco || '', p.cuenta || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado])
       : comun.concat([p.cco || '', p.cuenta || '', p.descripcion || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado]);
     const filaNueva = agregarFila_(hoja, valores, monedaTxt);
-    if (fueraDeVto) hoja.getRange(filaNueva, valores.length).setBackground(CLR_ROJO_SUAVE);
+    if (fueraDeVto || dupOrden) hoja.getRange(filaNueva, valores.length).setBackground(CLR_ROJO_SUAVE);
 
     return {
       ok: true, orden: ordenTxt, tipo: p.tipo, titular: p.titular || '', cco: p.cco || '',
@@ -320,8 +328,30 @@ function getSpreadsheetIn_(folder, nombre) {
   const it = folder.getFilesByName(nombre);
   if (it.hasNext()) return SpreadsheetApp.open(it.next());
   const ss = SpreadsheetApp.create(nombre);
-  DriveApp.getFileById(ss.getId()).moveTo(folder);
+  const file = DriveApp.getFileById(ss.getId());
+  file.moveTo(folder);
+  darAccesoDeEdicion_(file, folder);
   return ss;
+}
+
+// Da permiso de EDICIÓN a quienes tienen acceso a la carpeta, para que las planillas NO queden
+// en solo lectura para el resto del equipo.
+function darAccesoDeEdicion_(file, folder) {
+  // 1) Si la carpeta se comparte por link (dominio o cualquiera), replicar ese acceso como EDITOR.
+  try {
+    const acc = folder.getSharingAccess();
+    if (acc === DriveApp.Access.DOMAIN || acc === DriveApp.Access.DOMAIN_WITH_LINK ||
+        acc === DriveApp.Access.ANYONE || acc === DriveApp.Access.ANYONE_WITH_LINK) {
+      file.setSharing(acc, DriveApp.Permission.EDIT);
+    }
+  } catch (e) {}
+  // 2) Personas explícitas de la carpeta (lectores y editores) → editores del archivo.
+  try {
+    const mails = {};
+    folder.getEditors().forEach(function (u) { mails[u.getEmail()] = true; });
+    folder.getViewers().forEach(function (u) { mails[u.getEmail()] = true; });
+    Object.keys(mails).forEach(function (m) { if (m) { try { file.addEditor(m); } catch (e) {} } });
+  } catch (e) {}
 }
 
 function getOrCreateHoja_(ss, solapa, nombreCtx, fechaCtx, headers) {
@@ -471,6 +501,35 @@ function parseFecha_(s) {
   return new Date(parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10));
 }
 function diaFin_(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59); }
+
+// Normaliza una fecha (Date o texto) a "dd/MM/yyyy" para poder comparar.
+function normalizarFecha_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+  return String(v == null ? '' : v).trim();
+}
+
+// Busca si ya hay una fila con misma FECHA, PROVEEDOR, IMPORTE y MONEDA. Devuelve el ORDEN existente o null.
+function buscarDuplicado_(hoja, p) {
+  const last = hoja.getLastRow();
+  if (last < FIRST_DATA_ROW) return null;
+  const fechaN = normalizarFecha_(p.fecha);
+  const provN = String(p.proveedor || '').trim().toLowerCase();
+  const impN = parseImporte_(p.importe);
+  const monN = normalizarMoneda_(p.moneda);
+  // Columnas: 1 ORDEN, 2 FECHA, 4 PROVEEDOR, 5 IMPORTE, 6 MONEDA
+  const datos = hoja.getRange(FIRST_DATA_ROW, 1, last - FIRST_DATA_ROW + 1, COL_MONEDA).getValues();
+  for (var i = 0; i < datos.length; i++) {
+    var r = datos[i];
+    if (String(r[3]).trim() === '' && String(r[COL_MONEDA - 1]).trim() === '') continue; // fila vacía
+    if (normalizarFecha_(r[1]) === fechaN &&
+        String(r[3]).trim().toLowerCase() === provN &&
+        (Number(r[4]) || 0) === impN &&
+        String(r[COL_MONEDA - 1]).trim().toUpperCase() === monN) {
+      return String(r[0]); // ORDEN existente
+    }
+  }
+  return null;
+}
 
 // Convierte "10.000,00" / "10000.00" / 10000 a número.
 // Formato ARGENTINO: el punto (.) es separador de miles y la coma (,) el decimal.

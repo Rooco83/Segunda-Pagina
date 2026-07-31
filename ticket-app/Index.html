@@ -427,13 +427,27 @@
         proveedor:document.getElementById(p+'_prov').value, importe:imp, moneda:getMoneda(p),
         imagenBase64:st[p].img, mimeType:st[p].mime
       };
+      enviarTicket(p,accion,payload);
+    }
+    function enviarTicket(p,accion,payload){
       setBtns(p,true);
-      google.script.run.withSuccessHandler(function(r){ guardado(p,accion,r); }).withFailureHandler(function(e){ setBtns(p,false); alert('❌ '+(e.message||e)); }).procesarTicket(payload);
+      google.script.run.withSuccessHandler(function(r){ guardado(p,accion,payload,r); }).withFailureHandler(function(e){ setBtns(p,false); alert('❌ '+(e.message||e)); }).procesarTicket(payload);
     }
     function setBtns(p,dis){ document.getElementById(p+'_b1').disabled=dis; document.getElementById(p+'_b2').disabled=dis; document.getElementById(p+'_b1').textContent=dis?'Guardando…':'Cargar otro gasto'; }
-    function guardado(p,accion,r){
+    function guardado(p,accion,payload,r){
       setBtns(p,false);
-      if(!r || !r.ok){ alert('❌ '+((r&&r.error)||'No se pudo guardar')); return; }
+      if(!r || !r.ok){
+        if(r && r.duplicado){
+          var msg='⚠️ Ya hay un gasto cargado con los MISMOS datos (Orden #'+r.ordenExistente+'):\n\n'
+            +'• Fecha: '+(payload.fecha||'-')+'\n'
+            +'• Proveedor: '+(payload.proveedor||'-')+'\n'
+            +'• Importe: '+(payload.importe||'-')+' '+(r.moneda||'')+'\n\n'
+            +'¿Querés cargarlo igual?';
+          if(confirm(msg)){ payload.forzar=true; enviarTicket(p,accion,payload); }
+          return;
+        }
+        alert('❌ '+((r&&r.error)||'No se pudo guardar')); return;
+      }
       if(accion==='terminar'){ go('gracias'); resetForm(p); return; }
       // "Cargar otro gasto": limpiamos y avisamos
       resetForm(p);
