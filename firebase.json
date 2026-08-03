@@ -9,7 +9,7 @@
     ],
     "headers": [
       {
-        "source": "sw.js",
+        "source": "**",
         "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       }
     ]
