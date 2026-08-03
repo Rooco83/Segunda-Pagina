@@ -18,7 +18,8 @@ y **no pide tarjeta** (ignorá el cartel del crédito de $300).
 3. **Pantalla de consentimiento OAuth** → tipo **Interno** (solo @venue, sin
    advertencias). Nombre `Cotas Venue`, mail de soporte.
 4. **Credenciales → Crear → ID de cliente de OAuth → Aplicación web**:
-   - *Orígenes de JavaScript autorizados*: **`https://rooco83.github.io`**
+   - *Orígenes de JavaScript autorizados*: **`https://cotas-venue.web.app`** y
+     **`https://cotas-venue.firebaseapp.com`**
    - (no hace falta URI de redireccionamiento).
 5. Copiás el **Client ID** (`…apps.googleusercontent.com`) y lo pegás en
    **`medidas-app/config.js`** (`googleClientId`). El **secreto del cliente NO se usa**.
@@ -28,19 +29,23 @@ y **no pide tarjeta** (ignorá el cartel del crédito de $300).
 
 ---
 
-## Parte B · Publicar la app (GitHub Pages, gratis)
+## Parte B · Publicar la app (Firebase Hosting, gratis, a nombre de la empresa)
 
-La app tiene que vivir en **`https://rooco83.github.io`** (el origen que autorizaste
-arriba), si no, el login de Google no funciona.
+La app vive en **`https://cotas-venue.web.app`**, alojada en el proyecto de Google
+de la empresa (Firebase Hosting del proyecto `cotas-venue`). El paso a paso completo
+para publicar/actualizar está en **`DEPLOY-GOOGLE.md`**. Resumen:
 
-1. En GitHub, entrá al repo **Rooco83/Segunda-Pagina** → **Settings** → **Pages**.
-2. En *Build and deployment → Source* elegí **Deploy from a branch**.
-3. *Branch*: elegí la rama donde está la app (`claude/photo-measurement-app-design-va3e87`
-   o `main` si ya la mergeaste), carpeta **/(root)** → **Save**.
-4. Esperá 1–2 minutos. La app queda en:
-   ```
-   https://rooco83.github.io/Segunda-Pagina/medidas-app/
-   ```
+```bash
+# en Google Cloud Shell (terminal del navegador, logueado con @venue)
+git clone https://github.com/Rooco83/Segunda-Pagina.git
+cd Segunda-Pagina
+firebase deploy --only hosting --project cotas-venue
+```
+
+Para **actualizar** la app cuando haya cambios:
+```bash
+cd ~/Segunda-Pagina && git pull && firebase deploy --only hosting --project cotas-venue
+```
 
 ---
 
@@ -83,8 +88,12 @@ deja una miniatura + una copia liviana para editar. Se puede desactivar en Ajust
 ## Si algo no anda
 
 - **El botón "Entrar con Google" no hace nada / da error de origen**: revisá que la
-  app se abra desde `https://rooco83.github.io/...` y que ese origen esté en
+  app se abra desde `https://cotas-venue.web.app` y que ese origen esté en
   *Orígenes de JavaScript autorizados* del ID de OAuth (Parte A, paso 4).
+- **"Google no ha podido verificar que esta cuenta sea tuya"**: es un candado de la
+  cuenta de Google (no de la app). Quitá y volvé a agregar la cuenta en el teléfono,
+  o revisá myaccount.google.com/security-checkup. Probá también en Chrome (no dentro
+  de otra app).
 - **"Falta el Client ID"** en Ajustes: no se pegó el Client ID en `config.js`.
 - **Una foto quedó "pendiente"**: entrá al proyecto → ⋮ → *Subir pendientes a Drive*
   (necesitás señal y estar logueado).
