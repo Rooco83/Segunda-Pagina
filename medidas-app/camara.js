@@ -11,6 +11,7 @@ const Camara = (() => {
   let ev = 0, evPaso = 0.33, evMin = -2, evMax = 2;
   let nivelHandler = null;
   let proyectoId = null;
+  let zoomCap = null, zoomActual = 1;        // pinch-to-zoom
 
   const $ = id => document.getElementById(id);
 
@@ -73,19 +74,13 @@ const Camara = (() => {
   function configurarControles() {
     const caps = track.getCapabilities ? track.getCapabilities() : {};
 
-    // zoom
-    const zw = $('cam-zoom-wrap'), zr = $('cam-zoom');
+    // zoom → pellizco con dos dedos (pinch), simple y como la cámara nativa
     if (caps.zoom && caps.zoom.max > caps.zoom.min) {
-      zw.classList.remove('oculto');
-      zr.min = caps.zoom.min; zr.max = caps.zoom.max;
-      zr.step = caps.zoom.step || 0.1;
-      zr.value = track.getSettings().zoom || caps.zoom.min;
-      $('cam-zoom-val').textContent = (+zr.value).toFixed(1) + '×';
-      zr.oninput = () => {
-        track.applyConstraints({ advanced: [{ zoom: +zr.value }] }).catch(() => {});
-        $('cam-zoom-val').textContent = (+zr.value).toFixed(1) + '×';
-      };
-    } else zw.classList.add('oculto');
+      zoomCap = caps.zoom;
+      zoomActual = track.getSettings().zoom || caps.zoom.min;
+    } else {
+      zoomCap = null;
+    }
 
     // linterna
     const bt = $('cam-torch');
@@ -178,10 +173,50 @@ const Camara = (() => {
   function cerrar() {
     detenerStream();
     nivelOff();
+    zoomCap = null;
+    $('cam-zoom-ind').classList.add('oculto');
   }
+
+  /* ── pinch-to-zoom sobre el visor ── */
+  const pinchPts = new Map();
+  let pinchDist0 = 0, pinchZoom0 = 1, indTimer = null;
+
+  function aplicarZoom(z) {
+    if (!zoomCap || !track) return;
+    zoomActual = Math.max(zoomCap.min, Math.min(zoomCap.max, z));
+    track.applyConstraints({ advanced: [{ zoom: zoomActual }] }).catch(() => {});
+    const ind = $('cam-zoom-ind');
+    ind.textContent = zoomActual.toFixed(1) + '×';
+    ind.classList.remove('oculto');
+    clearTimeout(indTimer);
+    indTimer = setTimeout(() => ind.classList.add('oculto'), 900);
+  }
+  function pinchDown(e) {
+    pinchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinchPts.size === 2) {
+      const [a, b] = [...pinchPts.values()];
+      pinchDist0 = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      pinchZoom0 = zoomActual;
+    }
+  }
+  function pinchMove(e) {
+    if (!pinchPts.has(e.pointerId)) return;
+    pinchPts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinchPts.size === 2 && zoomCap) {
+      const [a, b] = [...pinchPts.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      aplicarZoom(pinchZoom0 * (d / pinchDist0));
+    }
+  }
+  function pinchUp(e) { pinchPts.delete(e.pointerId); }
 
   function init() {
     $('cam-disparar').addEventListener('click', capturar);
+    const sec = $('scr-cam');
+    sec.addEventListener('pointerdown', pinchDown);
+    sec.addEventListener('pointermove', pinchMove);
+    sec.addEventListener('pointerup', pinchUp);
+    sec.addEventListener('pointercancel', pinchUp);
     $('btn-cam-volver').addEventListener('click', () => {
       cerrar();
       App.abrirProyecto(proyectoId);

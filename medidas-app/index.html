@@ -88,34 +88,32 @@
 </section>
 
 <!-- ═══════════════ CÁMARA PRO ═══════════════ -->
-<section id="scr-cam" class="screen oculto s-oscuro">
-  <div class="visor-wrap">
-    <video id="cam-video" playsinline autoplay muted></video>
-    <div id="cam-grilla" class="cam-grilla"></div>
-    <div id="cam-nivel" class="cam-nivel oculto">
-      <span id="cam-nivel-deg">0°</span>
-      <span class="nivel-linea" id="cam-nivel-linea"><i class="nivel-burbuja"></i></span>
-    </div>
-    <div id="cam-cuenta" class="cam-cuenta oculto">3</div>
-    <div class="cam-top">
-      <button class="cam-btn" id="cam-torch" title="Linterna"><svg viewBox="0 0 24 24"><path d="M13 2L5 13h5l-1 9 8-11h-5l1-9z"/></svg></button>
-      <button class="cam-btn" id="cam-timer" title="Temporizador 3s"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg></button>
-      <button class="cam-btn" id="cam-gridbtn" title="Grilla"><svg viewBox="0 0 24 24"><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></button>
-      <button class="cam-btn" id="cam-nivelbtn" title="Nivel"><svg viewBox="0 0 24 24"><path d="M3 12h18M12 9v6"/><circle cx="12" cy="12" r="9"/></svg></button>
-      <button class="cam-btn" id="cam-flip" title="Cambiar cámara"><svg viewBox="0 0 24 24"><path d="M4 9a8 8 0 0 1 14-3l2 2M20 15a8 8 0 0 1-14 3l-2-2M17 6h3V3M7 18H4v3"/></svg></button>
-    </div>
-    <div class="cam-ev oculto" id="cam-ev-wrap">
-      <button class="cam-btn chico" id="cam-ev-menos">−</button>
-      <span id="cam-ev-val">0 EV</span>
-      <button class="cam-btn chico" id="cam-ev-mas">+</button>
-    </div>
-    <div class="cam-zoom oculto" id="cam-zoom-wrap">
-      <span id="cam-zoom-val">1.0×</span>
-      <input type="range" id="cam-zoom" min="1" max="8" step="0.1" value="1">
-    </div>
+<section id="scr-cam" class="screen oculto s-cam">
+  <video id="cam-video" playsinline autoplay muted></video>
+  <div id="cam-grilla" class="cam-grilla"></div>
+  <div id="cam-nivel" class="cam-nivel oculto">
+    <span id="cam-nivel-deg">0°</span>
+    <span class="nivel-linea" id="cam-nivel-linea"><i class="nivel-burbuja"></i></span>
   </div>
-  <div class="cam-abajo">
-    <button class="icon-btn blanco" id="btn-cam-volver" aria-label="Cerrar cámara">
+  <div id="cam-cuenta" class="cam-cuenta oculto">3</div>
+  <div id="cam-zoom-ind" class="cam-zoom-ind oculto">1.0×</div>
+
+  <div class="cam-top">
+    <button class="cam-btn" id="cam-torch" title="Linterna"><svg viewBox="0 0 24 24"><path d="M13 2L5 13h5l-1 9 8-11h-5l1-9z"/></svg></button>
+    <button class="cam-btn" id="cam-timer" title="Temporizador 3s"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg></button>
+    <button class="cam-btn" id="cam-gridbtn" title="Grilla"><svg viewBox="0 0 24 24"><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg></button>
+    <button class="cam-btn" id="cam-nivelbtn" title="Nivel"><svg viewBox="0 0 24 24"><path d="M3 12h18M12 9v6"/><circle cx="12" cy="12" r="9"/></svg></button>
+    <button class="cam-btn" id="cam-flip" title="Cambiar cámara"><svg viewBox="0 0 24 24"><path d="M4 9a8 8 0 0 1 14-3l2 2M20 15a8 8 0 0 1-14 3l-2-2M17 6h3V3M7 18H4v3"/></svg></button>
+  </div>
+
+  <div class="cam-ev oculto" id="cam-ev-wrap">
+    <button class="cam-btn chico" id="cam-ev-menos">−</button>
+    <span id="cam-ev-val">0 EV</span>
+    <button class="cam-btn chico" id="cam-ev-mas">+</button>
+  </div>
+
+  <div class="cam-controles">
+    <button class="cam-x" id="btn-cam-volver" aria-label="Cerrar cámara">
       <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
     </button>
     <button id="cam-disparar" class="disparador" aria-label="Sacar foto"><i></i></button>
