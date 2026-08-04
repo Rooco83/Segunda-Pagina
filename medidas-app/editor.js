@@ -320,6 +320,16 @@ const Editor = (() => {
           stroke-dasharray="${px2sv() * 6} ${px2sv() * 4}" fill="none"/>`;
       }
     }
+    // cajita "lista para mover" (se mantuvo presionada): aro naranja alrededor
+    if (etiquetaArmada && annos.indexOf(etiquetaArmada) >= 0) {
+      const caja = cajaEtiqueta(etiquetaArmada);
+      if (caja) {
+        const m = px2sv() * 5, sw = px2sv() * 3;
+        html += `<rect x="${caja.cx - caja.w / 2 - m}" y="${caja.cy - caja.h / 2 - m}"
+          width="${caja.w + m * 2}" height="${caja.h + m * 2}" rx="${caja.h * 0.4}"
+          fill="none" stroke="#F15A24" stroke-width="${sw}"/>`;
+      }
+    }
     s.innerHTML = html;
     actualizarBotones();
     marcarProps();
@@ -477,6 +487,17 @@ const Editor = (() => {
   const punteros = new Map();
   let modo = null;           // 'handle' | 'cuerpo' | 'pan' | 'pinch'
   let arrastre = null;       // datos del gesto en curso
+  let lpTimer = null;        // temporizador de "mantener presionado" (mover cajita)
+  let etiquetaArmada = null; // cajita lista para moverse (tras mantener presionado)
+
+  /* la cajita del valor se movió con mantener-presionado: acá se "arma" */
+  function armarEtiqueta(a) {
+    if (!arrastre || modo !== 'etiqueta' || arrastre.movio) return;
+    arrastre.armado = true;
+    etiquetaArmada = a;
+    if (navigator.vibrate) { try { navigator.vibrate(18); } catch {} }
+    render();
+  }
 
   function clampVista() {
     const aspecto = H / W;
@@ -493,6 +514,7 @@ const Editor = (() => {
 
     if (punteros.size === 2) {
       const [p1, p2] = [...punteros.values()];
+      clearTimeout(lpTimer);
       modo = 'pinch';
       arrastre = {
         d0: Math.hypot(p1.x - p2.x, p1.y - p2.y),
@@ -523,13 +545,17 @@ const Editor = (() => {
     if (hit >= 0) {
       if (hit !== sel) { sel = hit; render(); }
       const a = annos[hit];
-      // arrastrar la cajita del valor la reubica (sin mover la cota)
+      arrastre = { ...inicio, hit, ult: p, armado: false };
+      // La cajita del valor: TOCAR = poner/editar el valor. Para MOVERLA hay que
+      // MANTENERLA PRESIONADA (~0,4s): recién ahí se "arma" (vibra + se resalta) y
+      // se puede arrastrar. Así no se corre de lugar sin querer al querer tocarla.
       if ((a.t === 'cota' || a.t === 'angulo') && hitEtiqueta(a, p)) {
         modo = 'etiqueta';
+        clearTimeout(lpTimer);
+        lpTimer = setTimeout(() => armarEtiqueta(a), 400);
       } else {
         modo = 'cuerpo';
       }
-      arrastre = { ...inicio, hit, ult: p };
       return;
     }
 
@@ -576,6 +602,8 @@ const Editor = (() => {
       arrastre.ult = p;
       render();
     } else if (modo === 'etiqueta') {
+      // sin mantener presionado, NO se mueve (se cancela el temporizador de armado)
+      if (!arrastre.armado) { clearTimeout(lpTimer); return; }
       const p = punto(ev);
       const a = annos[arrastre.hit];
       const mdx = p.x - arrastre.ult.x, mdy = p.y - arrastre.ult.y;
@@ -607,20 +635,27 @@ const Editor = (() => {
       if (punteros.size < 2) { modo = null; arrastre = null; }
       return;
     }
-    if (!arrastre) { modo = null; return; }
+    clearTimeout(lpTimer);
+    if (!arrastre) { modo = null; etiquetaArmada = null; return; }
 
+    const teniaArmada = !!etiquetaArmada;
+    etiquetaArmada = null;
     const fueTap = !arrastre.movio;
-    if ((modo === 'handle' || modo === 'cuerpo' || modo === 'etiqueta') && arrastre.movio) {
+    // en la cajita, "movió de verdad" solo si estaba armada (mantuvo presionado)
+    const movio = arrastre.movio && (modo !== 'etiqueta' || arrastre.armado);
+    if ((modo === 'handle' || modo === 'cuerpo' || modo === 'etiqueta') && movio) {
       pushHist(arrastre.pre);
       guardarBorrador();
     } else if (fueTap && modo === 'pan') {
       if (sel >= 0) { sel = -1; render(); }
-    } else if (fueTap && (modo === 'cuerpo' || modo === 'etiqueta')) {
+    } else if (fueTap && (modo === 'cuerpo' || (modo === 'etiqueta' && !arrastre.armado))) {
+      // tocar la cajita (sin mantener presionado) → poner/editar el valor
       const a = annos[arrastre.hit];
       if (hitEtiqueta(a, arrastre.p)) editarContenido(a);
     }
     modo = null; arrastre = null;
     actualizarBotones();
+    if (teniaArmada) render();   // limpia el resaltado de "listo para mover"
   }
 
   /* guarda las anotaciones (sin exportar) para no perder trabajo */
@@ -871,6 +906,8 @@ const Editor = (() => {
   }
 
   function cerrar() {
+    clearTimeout(lpTimer);
+    etiquetaArmada = null; arrastre = null; modo = null;
     if (imgURL) { URL.revokeObjectURL(imgURL); imgURL = ''; }
     svg().innerHTML = '';
     foto = null; img = null; annos = []; origSesion = null;
