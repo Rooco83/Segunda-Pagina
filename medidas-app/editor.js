@@ -100,31 +100,42 @@ const Editor = (() => {
     return (a.val || '?') + (a.u ? ' ' + a.u : '');
   }
 
-  /* posición y caja de la etiqueta de una anotación (para hit-test y dibujo) */
+  /* posición y caja de la etiqueta de una anotación (para hit-test y dibujo).
+     ax,ay = ancla natural; cx,cy = posición final (ancla + corrimiento manual lox/loy) */
   function cajaEtiqueta(a) {
-    let txt = null, cx, cy;
+    let txt = null, ax, ay;
     if (a.t === 'cota') {
       txt = etiquetaCota(a);
       const mx = (a.x1 + a.x2) / 2, my = (a.y1 + a.y2) / 2;
       const len = Math.hypot(a.x2 - a.x1, a.y2 - a.y1) || 1;
       const nx = -(a.y2 - a.y1) / len, ny = (a.x2 - a.x1) / len;
       const off = fontPx(a) * 1.1;
-      cx = mx + nx * off; cy = my + ny * off;
+      ax = mx + nx * off; ay = my + ny * off;
     } else if (a.t === 'angulo') {
       txt = etiquetaAngulo(a);
       const i = anguloInfo(a);
       const bis = i.a1 + i.d / 2;
       const r = Math.min(dist({ x: a.x1, y: a.y1 }, { x: a.xv, y: a.yv }),
                          dist({ x: a.x2, y: a.y2 }, { x: a.xv, y: a.yv })) * 0.55 + fontPx(a);
-      cx = a.xv + Math.cos(bis) * r; cy = a.yv + Math.sin(bis) * r;
+      ax = a.xv + Math.cos(bis) * r; ay = a.yv + Math.sin(bis) * r;
     } else if (a.t === 'texto') {
       txt = a.txt || ' ';
-      cx = a.x; cy = a.y;
+      ax = a.x; ay = a.y;
     } else return null;
+    const cx = ax + (a.lox || 0), cy = ay + (a.loy || 0);
     const fpx = fontPx(a);
     const w = anchoTexto(txt, fpx) + fpx * 0.9;
     const h = fpx * 1.6;
-    return { txt, cx, cy, w, h, fpx };
+    return { txt, cx, cy, ax, ay, w, h, fpx };
+  }
+
+  /* guía fina desde la anotación hasta la etiqueta cuando se la corrió de lugar */
+  function guiaEtiquetaSVG(a) {
+    if (!a.lox && !a.loy) return '';
+    if (a.t !== 'cota' && a.t !== 'angulo') return '';
+    const c = cajaEtiqueta(a);
+    return `<line x1="${c.ax}" y1="${c.ay}" x2="${c.cx}" y2="${c.cy}" stroke="${a.color}"
+      stroke-width="${strokePx(a) * 0.5}" stroke-dasharray="${strokePx(a) * 1.5} ${strokePx(a) * 1.5}" opacity=".8"/>`;
   }
 
   /* ══════════════ dibujo SVG ══════════════ */
@@ -156,6 +167,7 @@ const Editor = (() => {
       s += `<line x1="${a.x1}" y1="${a.y1}" x2="${a.x2}" y2="${a.y2}" stroke="${c}" stroke-width="${sw}"/>
         <line x1="${a.x1 - nx}" y1="${a.y1 - ny}" x2="${a.x1 + nx}" y2="${a.y1 + ny}" stroke="${c}" stroke-width="${sw}"/>
         <line x1="${a.x2 - nx}" y1="${a.y2 - ny}" x2="${a.x2 + nx}" y2="${a.y2 + ny}" stroke="${c}" stroke-width="${sw}"/>`;
+      s += guiaEtiquetaSVG(a);
       s += chipSVG(cajaEtiqueta(a), c);
     } else if (a.t === 'flecha') {
       s += `<line x1="${a.x1}" y1="${a.y1}" x2="${a.x2}" y2="${a.y2}" stroke="${c}" stroke-width="${sw}"/>`;
@@ -171,6 +183,7 @@ const Editor = (() => {
       const ex = a.xv + Math.cos(i.a2) * r, ey = a.yv + Math.sin(i.a2) * r;
       s += `<path d="M${a.x1} ${a.y1} L${a.xv} ${a.yv} L${a.x2} ${a.y2}" stroke="${c}" stroke-width="${sw}" fill="none"/>
         <path d="M${sx} ${sy} A${r} ${r} 0 0 ${i.d > 0 ? 1 : 0} ${ex} ${ey}" stroke="${c}" stroke-width="${sw * 0.8}" fill="none"/>`;
+      s += guiaEtiquetaSVG(a);
       s += chipSVG(cajaEtiqueta(a), c);
     } else if (a.t === 'texto') {
       const caja = cajaEtiqueta(a);
@@ -498,9 +511,15 @@ const Editor = (() => {
 
     const hit = hitTest(p);
     if (hit >= 0) {
-      modo = 'cuerpo';
-      arrastre = { ...inicio, hit, ult: p };
       if (hit !== sel) { sel = hit; render(); }
+      const a = annos[hit];
+      // arrastrar la cajita del valor la reubica (sin mover la cota)
+      if ((a.t === 'cota' || a.t === 'angulo') && hitEtiqueta(a, p)) {
+        modo = 'etiqueta';
+      } else {
+        modo = 'cuerpo';
+      }
+      arrastre = { ...inicio, hit, ult: p };
       return;
     }
 
@@ -546,6 +565,13 @@ const Editor = (() => {
       mover(a, dx, dy);
       arrastre.ult = p;
       render();
+    } else if (modo === 'etiqueta') {
+      const p = punto(ev);
+      const a = annos[arrastre.hit];
+      a.lox = (a.lox || 0) + (p.x - arrastre.ult.x);
+      a.loy = (a.loy || 0) + (p.y - arrastre.ult.y);
+      arrastre.ult = p;
+      render();
     } else if (modo === 'pan') {
       const k = px2sv();
       vista.x = arrastre.vista0.x - dxs * k;
@@ -565,12 +591,12 @@ const Editor = (() => {
     if (!arrastre) { modo = null; return; }
 
     const fueTap = !arrastre.movio;
-    if ((modo === 'handle' || modo === 'cuerpo') && arrastre.movio) {
+    if ((modo === 'handle' || modo === 'cuerpo' || modo === 'etiqueta') && arrastre.movio) {
       pushHist(arrastre.pre);
       guardarBorrador();
     } else if (fueTap && modo === 'pan') {
       if (sel >= 0) { sel = -1; render(); }
-    } else if (fueTap && modo === 'cuerpo') {
+    } else if (fueTap && (modo === 'cuerpo' || modo === 'etiqueta')) {
       const a = annos[arrastre.hit];
       if (hitEtiqueta(a, arrastre.p)) editarContenido(a);
     }
@@ -607,6 +633,20 @@ const Editor = (() => {
     ctx.restore();
   }
 
+  function guiaCanvas(ctx, a) {
+    if ((!a.lox && !a.loy) || (a.t !== 'cota' && a.t !== 'angulo')) return;
+    const c = cajaEtiqueta(a);
+    ctx.save();
+    ctx.strokeStyle = a.color;
+    ctx.lineWidth = strokePx(a) * 0.5;
+    ctx.setLineDash([strokePx(a) * 1.5, strokePx(a) * 1.5]);
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(c.ax, c.ay); ctx.lineTo(c.cx, c.cy);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   function puntaCanvas(ctx, x, y, dx, dy, a) {
     const L = Math.hypot(dx, dy) || 1;
     const ux = dx / L, uy = dy / L, s = strokePx(a) * 3.6;
@@ -631,6 +671,7 @@ const Editor = (() => {
       ctx.moveTo(a.x1 - nx, a.y1 - ny); ctx.lineTo(a.x1 + nx, a.y1 + ny);
       ctx.moveTo(a.x2 - nx, a.y2 - ny); ctx.lineTo(a.x2 + nx, a.y2 + ny);
       ctx.stroke();
+      guiaCanvas(ctx, a);
       chipCanvas(ctx, cajaEtiqueta(a), 'rgba(7,24,36,.82)', a.color);
     } else if (a.t === 'flecha') {
       ctx.beginPath(); ctx.moveTo(a.x1, a.y1); ctx.lineTo(a.x2, a.y2); ctx.stroke();
@@ -650,6 +691,7 @@ const Editor = (() => {
       ctx.arc(a.xv, a.yv, r, i.a1, i.a2, i.d < 0);
       ctx.stroke();
       ctx.lineWidth = strokePx(a);
+      guiaCanvas(ctx, a);
       chipCanvas(ctx, cajaEtiqueta(a), 'rgba(7,24,36,.82)', a.color);
     } else if (a.t === 'texto') {
       chipCanvas(ctx, cajaEtiqueta(a), a.color, colorContraste(a.color));
