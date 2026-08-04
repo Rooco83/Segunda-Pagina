@@ -648,8 +648,9 @@ const Editor = (() => {
       guardarBorrador();
     } else if (fueTap && modo === 'pan') {
       if (sel >= 0) { sel = -1; render(); }
-    } else if (fueTap && (modo === 'cuerpo' || (modo === 'etiqueta' && !arrastre.armado))) {
-      // tocar la cajita (sin mantener presionado) → poner/editar el valor
+    } else if (fueTap && (modo === 'cuerpo' || modo === 'etiqueta')) {
+      // soltar SIN mover la cajita → poner/editar el valor (aunque se haya armado:
+      // si mantuvo apretado pero no la arrastró, igual quiere cargar el valor)
       const a = annos[arrastre.hit];
       if (hitEtiqueta(a, arrastre.p)) editarContenido(a);
     }
