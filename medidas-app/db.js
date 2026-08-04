@@ -145,30 +145,36 @@ const DB = (() => {
     });
   }
 
-  /* reduce un JPEG a maxLado (px del lado más largo) */
+  /* reduce un JPEG a maxLado (px del lado más largo).
+     Decodifica con <img> (el decoder del sistema): respeta la orientación EXIF
+     y —lo importante— evita un bug de varios iPhone donde createImageBitmap
+     devolvía la imagen en NEGRO, lo que dejaba en negro tanto la foto sacada
+     como la importada. Además queda igual que como el editor abre la imagen. */
   async function escalar(blob, maxLado, calidad) {
     if (!blob) return null;
+    let url = null;
     try {
-      const bmp = await crearBitmap(blob);
-      const escala = Math.min(1, maxLado / Math.max(bmp.width, bmp.height));
-      const w = Math.round(bmp.width * escala), h = Math.round(bmp.height * escala);
+      const img = await new Promise((res, rej) => {
+        const im = new Image();
+        url = URL.createObjectURL(blob);
+        im.onload = () => res(im);
+        im.onerror = () => rej(new Error('decode'));
+        im.src = url;
+      });
+      const iw = img.naturalWidth, ih = img.naturalHeight;
+      if (!iw || !ih) throw new Error('vacia');
+      const escala = Math.min(1, maxLado / Math.max(iw, ih));
+      const w = Math.max(1, Math.round(iw * escala));
+      const h = Math.max(1, Math.round(ih * escala));
       const cv = document.createElement('canvas');
       cv.width = w; cv.height = h;
-      cv.getContext('2d').drawImage(bmp, 0, 0, w, h);
-      if (bmp.close) bmp.close();
-      return await new Promise(res => cv.toBlob(res, 'image/jpeg', calidad));
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      const out = await new Promise(res => cv.toBlob(res, 'image/jpeg', calidad));
+      return out || blob;
     } catch {
       return blob;   // si algo falla, no rompemos: dejamos el original
+    } finally {
+      if (url) URL.revokeObjectURL(url);
     }
-  }
-  function crearBitmap(blob) {
-    if (window.createImageBitmap) return createImageBitmap(blob);
-    return new Promise((res, rej) => {
-      const img = new Image();
-      const u = URL.createObjectURL(blob);
-      img.onload = () => { URL.revokeObjectURL(u); res(img); };
-      img.onerror = rej;
-      img.src = u;
-    });
   }
 })();

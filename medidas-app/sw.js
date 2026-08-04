@@ -4,7 +4,7 @@
    último cuando hay señal) + caché de respaldo para andar sin señal. */
 'use strict';
 
-const CACHE = 'cv-rt-2';
+const CACHE = 'cv-rt-3';
 
 self.addEventListener('install', () => self.skipWaiting());
 
