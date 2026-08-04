@@ -31,10 +31,20 @@ const GAuth = (() => {
 
   async function init() {
     if (!configurado()) return;
-    // recuperamos el email guardado para mostrar la sesión mientras refresca
+    // recuperamos la SESIÓN guardada (usuario + token) para no tener que iniciar
+    // sesión en cada apertura. Clave en el celu/instalada: ahí Safari bloquea el
+    // refresco silencioso de Google, así que sin token guardado siempre pediría
+    // login. También sobrevive a las recargas de la auto-actualización.
     try {
       const g = JSON.parse(localStorage.getItem('cv-usuario'));
       if (g) usuario = g;
+    } catch {}
+    try {
+      const s = JSON.parse(localStorage.getItem('cv-token'));
+      if (s && s.token && s.exp && Date.now() < s.exp) {
+        accessToken = s.token;
+        expiraEn = s.exp;
+      }
     } catch {}
     try {
       await cargarGIS();
@@ -43,10 +53,11 @@ const GAuth = (() => {
         scope: SCOPES,
         callback: () => {}   // se reemplaza en cada pedido
       });
-      // intento de token silencioso al abrir (si ya dio permiso antes)
-      try { await pedirToken(false); } catch {}
+      // si no hay token válido guardado, probamos uno silencioso (anda en la web;
+      // en el celu suele fallar y ahí el usuario toca "Entrar" una vez).
+      if (!estaLogueado()) { try { await pedirToken(false); } catch {} }
     } catch {
-      // sin red / Google no disponible: la app sigue andando en modo local
+      // sin red / Google no disponible: seguimos con lo guardado (o modo local)
     }
     notificar();
   }
@@ -59,6 +70,7 @@ const GAuth = (() => {
         if (resp && resp.error) return rej(new Error(resp.error));
         accessToken = resp.access_token;
         expiraEn = Date.now() + ((resp.expires_in || 3600) - 90) * 1000;
+        try { localStorage.setItem('cv-token', JSON.stringify({ token: accessToken, exp: expiraEn })); } catch {}
         await obtenerUsuario();
         notificar();
         res(accessToken);
@@ -96,6 +108,7 @@ const GAuth = (() => {
     }
     accessToken = null; expiraEn = 0; usuario = null;
     localStorage.removeItem('cv-usuario');
+    localStorage.removeItem('cv-token');
     notificar();
   }
 
