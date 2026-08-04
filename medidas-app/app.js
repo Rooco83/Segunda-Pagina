@@ -319,6 +319,17 @@ const App = (() => {
     }
   }
 
+  /* muestra la versión publicada en Ajustes (para saber si el teléfono ya tomó
+     la última al dar soporte: si dice un número, está en la versión nueva) */
+  function mostrarVersion() {
+    const el = $('aj-version');
+    if (!el) return;
+    fetch('version.json?_=' + Date.now(), { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d && d.build) el.textContent = 'Cotas Venue · v' + d.build; })
+      .catch(() => {});
+  }
+
   async function entrarGoogle(btn) {
     if (!GAuth.configurado()) { toast('Falta configurar el Client ID de Google'); return; }
     const txt = btn && btn.textContent;
@@ -418,6 +429,7 @@ const App = (() => {
     Camara.init();
     irHome();
     refrescarSesion();
+    mostrarVersion();
     GAuth.init().then(() => {
       refrescarSesion();
       if (GAuth.estaLogueado()) sincronizarYRefrescar();
