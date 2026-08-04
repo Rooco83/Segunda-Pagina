@@ -68,6 +68,11 @@ Cloud Shell:
 ```bash
 cd Segunda-Pagina && git pull && firebase deploy --only hosting --project cotas-venue
 ```
+No hay que hacer nada más: la app se **auto-actualiza en cada apertura**. Al abrirla
+(desde el link o instalada) compara su versión con la publicada y, si hay una nueva,
+limpia todo y recarga sola una vez. Así todos ven los cambios enseguida sin tener que
+borrar caché ni reinstalar. La versión se marca en `medidas-app/version.json` (y se
+sube junto con cada cambio de código).
 
 ## ¿Y el código?
 El código puede seguir donde está; lo que importa es que la **app publicada** vive

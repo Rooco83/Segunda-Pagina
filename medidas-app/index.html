@@ -9,6 +9,36 @@
   if (location.hostname.endsWith('github.io')) {
     location.replace('https://cotas-venue.web.app/');
   }
+
+  // ── Auto-actualización ──────────────────────────────────────────────────
+  // En CADA apertura le preguntamos al servidor qué versión está publicada
+  // (sin caché). Si cambió respecto a la última que vimos, tiramos todas las
+  // cachés + el service worker y recargamos UNA vez. Así el link siempre abre
+  // lo último, tanto desde la web como instalada, sin que nadie limpie nada.
+  (function () {
+    try {
+      fetch('version.json?_=' + Date.now(), { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (!d || !d.build) return;
+          var vista = localStorage.getItem('cv-build');
+          if (vista === d.build) return;                       // ya al día
+          var yaRecargue = sessionStorage.getItem('cv-reload') === d.build;
+          localStorage.setItem('cv-build', d.build);
+          if (!vista || yaRecargue) return;                    // 1ra vez / anti-loop
+          sessionStorage.setItem('cv-reload', d.build);
+          var tareas = [];
+          if (window.caches) tareas.push(caches.keys().then(function (ks) {
+            return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+          }));
+          if (navigator.serviceWorker) tareas.push(
+            navigator.serviceWorker.getRegistrations().then(function (rs) {
+              return Promise.all(rs.map(function (x) { return x.unregister(); }));
+            }));
+          Promise.all(tareas).catch(function () {}).then(function () { location.reload(); });
+        }).catch(function () {});
+    } catch (e) {}
+  })();
 </script>
 <title>Cotas Venue</title>
 <meta name="description" content="Sacá fotos y marcales cotas, medidas, ángulos y notas. Por proyecto, guardado en tu Drive.">

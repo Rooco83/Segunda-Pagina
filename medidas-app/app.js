@@ -424,13 +424,24 @@ const App = (() => {
     }).catch(() => {});
 
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').catch(() => {});
-      // cuando una versión nueva toma el control, recargar UNA vez para verla
+      const habiaControlador = !!navigator.serviceWorker.controller;
       let recargando = false;
+      navigator.serviceWorker.register('sw.js').then(reg => {
+        reg.update();                                   // buscar versión nueva ya
+        setInterval(() => reg.update(), 60 * 60 * 1000); // y cada tanto
+      }).catch(() => {});
+      // cuando una versión nueva toma el control, recargar UNA vez para verla
+      // (en la 1ra instalación no hay que recargar: no había controlador)
       navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (recargando) return;
+        if (!habiaControlador || recargando) return;
         recargando = true;
         location.reload();
+      });
+      // al volver la app al primer plano (clave en móvil/PWA), re-chequear
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {});
+        }
       });
     }
   }
