@@ -207,8 +207,9 @@ img.proj-thumb{display:block;}
   background:var(--naranja);color:#fff;font-size:13px;font-weight:800;
   border-radius:999px;padding:9px 16px;box-shadow:0 6px 16px -6px rgba(241,90,36,.7);
 }
-.ed-stage{flex:1;position:relative;margin:2px 8px;border-radius:14px;overflow:hidden;background:#03101a;min-height:0;touch-action:none;}
-#ed-svg{position:absolute;inset:0;width:100%;height:100%;display:block;}
+.ed-stage{flex:1;position:relative;margin:2px 8px;border-radius:14px;overflow:hidden;background:#03101a;min-height:0;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
+#ed-svg{position:absolute;inset:0;width:100%;height:100%;display:block;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
+#ed-svg image{-webkit-touch-callout:none;pointer-events:none;}
 #ed-svg text{user-select:none;-webkit-user-select:none;}
 .lupa{
   position:absolute;width:132px;height:132px;border-radius:50%;

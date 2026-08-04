@@ -920,6 +920,9 @@ const Editor = (() => {
     st.addEventListener('pointermove', onMove);
     st.addEventListener('pointerup', onUp);
     st.addEventListener('pointercancel', onUp);
+    // al mantener presionado, iOS abre su menú de imagen (Copiar/Descargar/…):
+    // lo bloqueamos para que el "mantener presionado" sea solo para mover la cajita
+    st.addEventListener('contextmenu', e => e.preventDefault());
 
     document.querySelectorAll('.ed-tools .tool').forEach(b => {
       b.addEventListener('click', () => {
