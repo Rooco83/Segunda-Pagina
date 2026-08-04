@@ -161,6 +161,7 @@ const DB = (() => {
         im.onerror = () => rej(new Error('decode'));
         im.src = url;
       });
+      if (img.decode) { try { await img.decode(); } catch {} }
       const iw = img.naturalWidth, ih = img.naturalHeight;
       if (!iw || !ih) throw new Error('vacia');
       const escala = Math.min(1, maxLado / Math.max(iw, ih));
@@ -168,13 +169,37 @@ const DB = (() => {
       const h = Math.max(1, Math.round(ih * escala));
       const cv = document.createElement('canvas');
       cv.width = w; cv.height = h;
-      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      const ctx = cv.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      // Red de seguridad iOS: si el navegador se quedó sin memoria (típico en
+      // Safari con muchas pestañas), no rasteriza la imagen y deja el lienzo
+      // transparente → el JPEG saldría NEGRO. Lo detectamos por el alpha y, si
+      // pasó, devolvemos la foto original (se ve bien) en vez de una copia negra.
+      if (lienzoEnBlanco(ctx, w, h)) return blob;
       const out = await new Promise(res => cv.toBlob(res, 'image/jpeg', calidad));
       return out || blob;
     } catch {
       return blob;   // si algo falla, no rompemos: dejamos el original
     } finally {
       if (url) URL.revokeObjectURL(url);
+    }
+  }
+
+  /* ¿el dibujo falló y quedó el lienzo transparente? (bug de memoria de iOS).
+     Muestrea una grilla: si TODO el alpha es 0, no se rasterizó nada. Una foto
+     realmente negra tendría alpha 255, así que no la confundimos con un fallo. */
+  function lienzoEnBlanco(ctx, w, h) {
+    try {
+      const pasos = 5;
+      for (let i = 1; i < pasos; i++) {
+        for (let j = 1; j < pasos; j++) {
+          const x = Math.floor(w * i / pasos), y = Math.floor(h * j / pasos);
+          if (ctx.getImageData(x, y, 1, 1).data[3] !== 0) return false;
+        }
+      }
+      return true;
+    } catch {
+      return false;   // ante la duda, no descartamos la copia
     }
   }
 })();
