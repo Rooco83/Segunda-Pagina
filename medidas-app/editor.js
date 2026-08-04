@@ -102,40 +102,50 @@ const Editor = (() => {
 
   /* posición y caja de la etiqueta de una anotación (para hit-test y dibujo).
      ax,ay = ancla natural; cx,cy = posición final (ancla + corrimiento manual lox/loy) */
+  const etiquetaMovida = a =>
+    (a.t === 'cota' && (a.lt != null || a.ln != null)) ||
+    (a.t === 'angulo' && (a.lox || a.loy));
+
   function cajaEtiqueta(a) {
-    let txt = null, ax, ay;
+    let txt = null, cx, cy, ax, ay;
+    const fpx = fontPx(a);
     if (a.t === 'cota') {
       txt = etiquetaCota(a);
+      // posición GUARDADA relativa a la cota (a lo largo lt, perpendicular ln),
+      // así mantiene la distancia aunque muevas o gires la cota.
       const mx = (a.x1 + a.x2) / 2, my = (a.y1 + a.y2) / 2;
       const len = Math.hypot(a.x2 - a.x1, a.y2 - a.y1) || 1;
-      const nx = -(a.y2 - a.y1) / len, ny = (a.x2 - a.x1) / len;
-      const off = fontPx(a) * 1.1;
-      ax = mx + nx * off; ay = my + ny * off;
+      const dx = (a.x2 - a.x1) / len, dy = (a.y2 - a.y1) / len;
+      const nx = -dy, ny = dx;
+      const lt = a.lt || 0;
+      const ln = (a.ln != null) ? a.ln : fpx * 1.1;
+      ax = mx + dx * lt; ay = my + dy * lt;      // pie sobre la cota
+      cx = ax + nx * ln; cy = ay + ny * ln;      // etiqueta a distancia ln
     } else if (a.t === 'angulo') {
       txt = etiquetaAngulo(a);
       const i = anguloInfo(a);
       const bis = i.a1 + i.d / 2;
       const r = Math.min(dist({ x: a.x1, y: a.y1 }, { x: a.xv, y: a.yv }),
-                         dist({ x: a.x2, y: a.y2 }, { x: a.xv, y: a.yv })) * 0.55 + fontPx(a);
+                         dist({ x: a.x2, y: a.y2 }, { x: a.xv, y: a.yv })) * 0.55 + fpx;
       ax = a.xv + Math.cos(bis) * r; ay = a.yv + Math.sin(bis) * r;
+      cx = ax + (a.lox || 0); cy = ay + (a.loy || 0);
     } else if (a.t === 'texto') {
       txt = a.txt || ' ';
-      ax = a.x; ay = a.y;
+      ax = a.x; ay = a.y; cx = a.x; cy = a.y;
     } else return null;
-    const cx = ax + (a.lox || 0), cy = ay + (a.loy || 0);
-    const fpx = fontPx(a);
     const w = anchoTexto(txt, fpx) + fpx * 0.9;
     const h = fpx * 1.6;
     return { txt, cx, cy, ax, ay, w, h, fpx };
   }
 
-  /* guía fina desde la anotación hasta la etiqueta cuando se la corrió de lugar */
+  /* guía desde la anotación hasta la etiqueta cuando se la corrió de lugar:
+     línea sólida + puntito en la cota, para que se vea bien a cuál pertenece */
   function guiaEtiquetaSVG(a) {
-    if (!a.lox && !a.loy) return '';
-    if (a.t !== 'cota' && a.t !== 'angulo') return '';
+    if (!etiquetaMovida(a)) return '';
     const c = cajaEtiqueta(a);
     return `<line x1="${c.ax}" y1="${c.ay}" x2="${c.cx}" y2="${c.cy}" stroke="${a.color}"
-      stroke-width="${strokePx(a) * 0.5}" stroke-dasharray="${strokePx(a) * 1.5} ${strokePx(a) * 1.5}" opacity=".8"/>`;
+      stroke-width="${strokePx(a) * 0.6}" opacity=".9"/>
+      <circle cx="${c.ax}" cy="${c.ay}" r="${strokePx(a) * 1.4}" fill="${a.color}"/>`;
   }
 
   /* ══════════════ dibujo SVG ══════════════ */
@@ -568,8 +578,17 @@ const Editor = (() => {
     } else if (modo === 'etiqueta') {
       const p = punto(ev);
       const a = annos[arrastre.hit];
-      a.lox = (a.lox || 0) + (p.x - arrastre.ult.x);
-      a.loy = (a.loy || 0) + (p.y - arrastre.ult.y);
+      const mdx = p.x - arrastre.ult.x, mdy = p.y - arrastre.ult.y;
+      if (a.t === 'cota') {
+        // el movimiento se guarda en el marco de la cota (a lo largo / perpendicular)
+        const len = Math.hypot(a.x2 - a.x1, a.y2 - a.y1) || 1;
+        const dx = (a.x2 - a.x1) / len, dy = (a.y2 - a.y1) / len;
+        a.lt = (a.lt || 0) + (mdx * dx + mdy * dy);
+        a.ln = ((a.ln != null) ? a.ln : fontPx(a) * 1.1) + (mdx * -dy + mdy * dx);
+      } else {
+        a.lox = (a.lox || 0) + mdx;
+        a.loy = (a.loy || 0) + mdy;
+      }
       arrastre.ult = p;
       render();
     } else if (modo === 'pan') {
@@ -634,16 +653,19 @@ const Editor = (() => {
   }
 
   function guiaCanvas(ctx, a) {
-    if ((!a.lox && !a.loy) || (a.t !== 'cota' && a.t !== 'angulo')) return;
+    if (!etiquetaMovida(a)) return;
     const c = cajaEtiqueta(a);
     ctx.save();
-    ctx.strokeStyle = a.color;
-    ctx.lineWidth = strokePx(a) * 0.5;
-    ctx.setLineDash([strokePx(a) * 1.5, strokePx(a) * 1.5]);
-    ctx.globalAlpha = 0.8;
+    ctx.strokeStyle = a.color; ctx.fillStyle = a.color;
+    ctx.lineWidth = strokePx(a) * 0.6;
+    ctx.globalAlpha = 0.9;
     ctx.beginPath();
     ctx.moveTo(c.ax, c.ay); ctx.lineTo(c.cx, c.cy);
     ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.arc(c.ax, c.ay, strokePx(a) * 1.4, 0, 2 * Math.PI);
+    ctx.fill();
     ctx.restore();
   }
 
