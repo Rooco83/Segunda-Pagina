@@ -1,48 +1,34 @@
-/* Cotas Venue · sw.js — cache para funcionar offline */
+/* Cotas Venue · sw.js — auto-curativo:
+   al activarse borra TODAS las cachés viejas y recarga las pestañas, así ningún
+   teléfono queda pegado a una versión anterior. Después, red primero (siempre lo
+   último cuando hay señal) + caché de respaldo para andar sin señal. */
 'use strict';
 
-const CACHE = 'cotas-venue-v8';
-const ARCHIVOS = [
-  './',
-  'index.html',
-  'app.css',
-  'config.js',
-  'gauth.js',
-  'app.js',
-  'db.js',
-  'drive.js',
-  'editor.js',
-  'camara.js',
-  'manifest.webmanifest',
-  'venue-logo.png',
-  'icon-192.png',
-  'icon-512.png'
-];
+const CACHE = 'cv-rt-1';
 
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS)).then(() => self.skipWaiting()));
+self.addEventListener('install', () => self.skipWaiting());
+
+self.addEventListener('activate', (e) => {
+  e.waitUntil((async () => {
+    // borrar cualquier caché anterior (precache v1..v8, etc.)
+    const claves = await caches.keys();
+    await Promise.all(claves.filter(k => k !== CACHE).map(k => caches.delete(k)));
+    await self.clients.claim();   // la página se recarga sola vía 'controllerchange'
+  })());
 });
 
-self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys()
-      .then(claves => Promise.all(claves.filter(k => k !== CACHE).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
-  );
-});
-
-/* red primero para los archivos de la app (así llegan las actualizaciones),
-   caché como respaldo cuando no hay señal */
-self.addEventListener('fetch', e => {
+self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
-  e.respondWith(
-    fetch(e.request)
-      .then(resp => {
-        const copia = resp.clone();
-        caches.open(CACHE).then(c => c.put(e.request, copia));
-        return resp;
-      })
-      .catch(() => caches.match(e.request, { ignoreSearch: true }))
-  );
+  e.respondWith((async () => {
+    try {
+      const resp = await fetch(e.request);          // red primero (lo último)
+      const c = await caches.open(CACHE);
+      c.put(e.request, resp.clone()).catch(() => {});
+      return resp;
+    } catch (_) {
+      const cached = await caches.match(e.request, { ignoreSearch: true });
+      return cached || Response.error();            // respaldo offline
+    }
+  })());
 });

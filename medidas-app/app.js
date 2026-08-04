@@ -425,6 +425,13 @@ const App = (() => {
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(() => {});
+      // cuando una versión nueva toma el control, recargar UNA vez para verla
+      let recargando = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (recargando) return;
+        recargando = true;
+        location.reload();
+      });
     }
   }
 
