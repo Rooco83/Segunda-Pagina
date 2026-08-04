@@ -20,6 +20,11 @@ const App = (() => {
     clearTimeout(t._timer);
     t._timer = setTimeout(() => t.classList.add('oculto'), ms);
   }
+  function ocultarToast() {
+    const t = $('toast');
+    clearTimeout(t._timer);
+    t.classList.add('oculto');
+  }
 
   /* diálogo flexible:
      cfg = { titulo, mensaje?, input? (bool, def true), valor?, placeholder?,
@@ -274,9 +279,15 @@ const App = (() => {
 
   /* agrega fotos (blobs/Files) al proyecto; si abrirEditor, abre la última */
   async function agregarFotos(proyectoId, blobs, abrirEditor = false) {
+    // aviso mientras se procesa (así los segundos de armado no se ven "en negro")
+    toast(blobs.length > 1 ? 'Procesando fotos…' : 'Procesando foto…', 15000);
     let ultima = null;
-    for (const b of blobs) {
-      ultima = await DB.crearFoto(proyectoId, b);
+    try {
+      for (const b of blobs) {
+        ultima = await DB.crearFoto(proyectoId, b);
+      }
+    } finally {
+      ocultarToast();
     }
     if (abrirEditor && ultima) Editor.abrir(ultima.id);
     else abrirProyecto(proyectoId);

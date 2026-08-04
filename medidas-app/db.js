@@ -77,11 +77,14 @@ const DB = (() => {
       req.onerror = () => rej(req.error);
     })),
     crearFoto: async (proyectoId, blobOriginal) => {
+      // una sola decodificación → proxy liviano (edición) + miniatura (galería)
+      const [proxy, thumb] = await escalarVarios(blobOriginal, [
+        { max: 1600, calidad: 0.82 },
+        { max: 480, calidad: 0.72 }
+      ]);
       const f = {
         id: uid(), proyectoId, creado: Date.now(),
-        blobOriginal,
-        proxy: await escalar(blobOriginal, 1600, 0.82),   // copia liviana editable
-        thumb: await escalar(blobOriginal, 480, 0.72),    // miniatura de la galería
+        blobOriginal, proxy, thumb,
         anotaciones: [],
         blobFinal: null,
         driveFileId: null,
@@ -145,13 +148,14 @@ const DB = (() => {
     });
   }
 
-  /* reduce un JPEG a maxLado (px del lado más largo).
-     Decodifica con <img> (el decoder del sistema): respeta la orientación EXIF
-     y —lo importante— evita un bug de varios iPhone donde createImageBitmap
-     devolvía la imagen en NEGRO, lo que dejaba en negro tanto la foto sacada
-     como la importada. Además queda igual que como el editor abre la imagen. */
-  async function escalar(blob, maxLado, calidad) {
-    if (!blob) return null;
+  /* Decodifica el blob UNA sola vez y devuelve varios tamaños (proxy + miniatura).
+     Antes se decodificaba la foto entera dos veces (una por tamaño): en el celu,
+     con fotos de 12 MP, eso agregaba varios segundos de "pantalla en negro" al
+     sacar/importar. Ahora es una sola decodificación para todos los tamaños.
+     Usa <img> (decoder del sistema): respeta la orientación EXIF y evita el bug
+     de varios iPhone donde createImageBitmap devolvía la imagen en NEGRO. */
+  async function escalarVarios(blob, medidas) {
+    if (!blob) return medidas.map(() => null);
     let url = null;
     try {
       const img = await new Promise((res, rej) => {
@@ -164,25 +168,34 @@ const DB = (() => {
       if (img.decode) { try { await img.decode(); } catch {} }
       const iw = img.naturalWidth, ih = img.naturalHeight;
       if (!iw || !ih) throw new Error('vacia');
-      const escala = Math.min(1, maxLado / Math.max(iw, ih));
-      const w = Math.max(1, Math.round(iw * escala));
-      const h = Math.max(1, Math.round(ih * escala));
-      const cv = document.createElement('canvas');
-      cv.width = w; cv.height = h;
-      const ctx = cv.getContext('2d');
-      ctx.drawImage(img, 0, 0, w, h);
-      // Red de seguridad iOS: si el navegador se quedó sin memoria (típico en
-      // Safari con muchas pestañas), no rasteriza la imagen y deja el lienzo
-      // transparente → el JPEG saldría NEGRO. Lo detectamos por el alpha y, si
-      // pasó, devolvemos la foto original (se ve bien) en vez de una copia negra.
-      if (lienzoEnBlanco(ctx, w, h)) return blob;
-      const out = await new Promise(res => cv.toBlob(res, 'image/jpeg', calidad));
-      return out || blob;
+      const salidas = [];
+      for (const m of medidas) {
+        const escala = Math.min(1, m.max / Math.max(iw, ih));
+        const w = Math.max(1, Math.round(iw * escala));
+        const h = Math.max(1, Math.round(ih * escala));
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        const ctx = cv.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        // Red de seguridad iOS: si se quedó sin memoria y no rasterizó, el lienzo
+        // queda transparente → el JPEG saldría NEGRO. Lo detectamos por el alpha
+        // y devolvemos la foto original (se ve bien) en vez de una copia negra.
+        if (lienzoEnBlanco(ctx, w, h)) { salidas.push(blob); continue; }
+        const out = await new Promise(res => cv.toBlob(res, 'image/jpeg', m.calidad));
+        salidas.push(out || blob);
+      }
+      return salidas;
     } catch {
-      return blob;   // si algo falla, no rompemos: dejamos el original
+      return medidas.map(() => blob);   // si algo falla, no rompemos: dejamos el original
     } finally {
       if (url) URL.revokeObjectURL(url);
     }
+  }
+
+  /* reduce un JPEG a maxLado (px del lado más largo) — un solo tamaño */
+  async function escalar(blob, maxLado, calidad) {
+    const [out] = await escalarVarios(blob, [{ max: maxLado, calidad }]);
+    return out;
   }
 
   /* ¿el dibujo falló y quedó el lienzo transparente? (bug de memoria de iOS).
