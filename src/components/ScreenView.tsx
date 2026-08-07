@@ -18,6 +18,7 @@ export function ScreenView({ screen }: { screen: Screen }) {
   const deleteScreen = useStore((s) => s.deleteScreen)
   const toggleModule = useStore((s) => s.toggleModule)
   const updateScreen = useStore((s) => s.updateScreen)
+  const tool = useStore((s) => s.tool)
 
   const preset = presetById(screen.presetId)
   const sender = senderById(screen.senderId)
@@ -61,10 +62,12 @@ export function ScreenView({ screen }: { screen: Screen }) {
       <div
         key={i}
         className={`mod ${isOff ? 'off' : ''}`}
+        data-sid={screen.id}
+        data-idx={i}
         style={{ width: cellW, height: cellH, background: shade }}
         onClick={(e) => {
           e.stopPropagation()
-          toggleModule(screen.id, i)
+          if (tool === 'hand') toggleModule(screen.id, i)
         }}
       >
         {orderMap[i]}

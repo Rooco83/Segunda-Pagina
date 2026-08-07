@@ -91,6 +91,7 @@ button { font-family: inherit; }
   cursor: grab;
 }
 .stage.panning { cursor: grabbing; }
+.stage.brush { cursor: crosshair; }
 .canvas-root { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
 
 .screen { position: relative; border-radius: 4px; box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.04) inset; }

@@ -18,6 +18,8 @@ export default function App() {
   const accentKey = useStore((s) => s.accentKey)
   const closeEdit = useStore((s) => s.closeEdit)
   const setExportOpen = useStore((s) => s.setExportOpen)
+  const undo = useStore((s) => s.undo)
+  const redo = useStore((s) => s.redo)
 
   useEffect(() => {
     const a = accentByKey(accentKey)
@@ -33,10 +35,19 @@ export default function App() {
         closeEdit()
         setExportOpen(false)
       }
+      const mod = e.ctrlKey || e.metaKey
+      if (mod && e.key.toLowerCase() === 'z') {
+        e.preventDefault()
+        if (e.shiftKey) redo()
+        else undo()
+      } else if (mod && e.key.toLowerCase() === 'y') {
+        e.preventDefault()
+        redo()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [closeEdit, setExportOpen])
+  }, [closeEdit, setExportOpen, undo, redo])
 
   return (
     <div className="app">

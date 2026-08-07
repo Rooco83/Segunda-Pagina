@@ -10,12 +10,16 @@ export function Stage() {
   const zoom = useStore((s) => s.zoom)
   const setZoom = useStore((s) => s.setZoom)
   const select = useStore((s) => s.select)
+  const tool = useStore((s) => s.tool)
+  const setModuleOff = useStore((s) => s.setModuleOff)
+  const snapshot = useStore((s) => s.snapshot)
 
   const stageRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const [pan, setPan] = useState({ x: 80, y: 40 })
   const [panning, setPanning] = useState(false)
   const drag = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null)
+  const paint = useRef<{ target: boolean; done: Set<string> } | null>(null)
 
   const fit = useCallback(() => {
     const stage = stageRef.current
@@ -58,6 +62,17 @@ export function Stage() {
   }
 
   const onPointerDown = (e: React.PointerEvent) => {
+    const mod = (e.target as HTMLElement).closest('.mod') as HTMLElement | null
+    if (tool === 'brush' && mod) {
+      const sid = mod.dataset.sid!
+      const idx = Number(mod.dataset.idx)
+      const target = !mod.classList.contains('off')
+      snapshot()
+      setModuleOff(sid, idx, target)
+      paint.current = { target, done: new Set([`${sid}:${idx}`]) }
+      stageRef.current?.setPointerCapture(e.pointerId)
+      return
+    }
     if ((e.target as HTMLElement).closest(IGNORE)) return
     select(null)
     drag.current = { sx: e.clientX, sy: e.clientY, ox: pan.x, oy: pan.y }
@@ -65,18 +80,31 @@ export function Stage() {
     stageRef.current?.setPointerCapture(e.pointerId)
   }
   const onPointerMove = (e: React.PointerEvent) => {
+    if (paint.current) {
+      const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null
+      const mod = el?.closest('.mod') as HTMLElement | null
+      if (mod) {
+        const key = `${mod.dataset.sid}:${mod.dataset.idx}`
+        if (!paint.current.done.has(key)) {
+          paint.current.done.add(key)
+          setModuleOff(mod.dataset.sid!, Number(mod.dataset.idx), paint.current.target)
+        }
+      }
+      return
+    }
     if (!drag.current) return
     setPan({ x: drag.current.ox + (e.clientX - drag.current.sx), y: drag.current.oy + (e.clientY - drag.current.sy) })
   }
   const onPointerUp = () => {
     drag.current = null
+    paint.current = null
     setPanning(false)
   }
 
   return (
     <main
       ref={stageRef}
-      className={`stage ${panning ? 'panning' : ''}`}
+      className={`stage ${panning ? 'panning' : ''} ${tool === 'brush' ? 'brush' : ''}`}
       onWheel={onWheel}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
