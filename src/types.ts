@@ -47,6 +47,8 @@ export interface Screen {
   namePos: { x: number; y: number }
   /** posición del logo dentro de la pantalla (px relativos) */
   logoPos: { x: number; y: number }
+  /** cableado manual: por cada salida, lista ordenada de índices de módulo */
+  wire?: number[][]
 }
 
 export interface Project {

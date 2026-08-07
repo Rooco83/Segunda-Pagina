@@ -42,23 +42,38 @@ export function modulesPerOutput(preset: ModulePreset, sender: Sender): number {
   return Math.max(1, Math.floor(sender.pxPerOutput / pxMod))
 }
 
-/** Divide el recorrido serpentina en salidas según el límite del sender. */
-export function cableRuns(
+/**
+ * Cableado automático: distribuye el recorrido serpentina entre las salidas
+ * físicas del sender, respetando el límite de módulos por salida.
+ */
+export function autoWire(
   screen: Screen,
   preset: ModulePreset,
   sender: Sender,
-): CableRun[] {
-  const order = serpentineOrder(screen.cols, screen.rows)
+): number[][] {
+  const order = serpentineOrder(screen.cols, screen.rows).map((c) => c.index)
   const limit = modulesPerOutput(preset, sender)
-  const runs: CableRun[] = []
-  for (let i = 0; i < order.length; i += limit) {
-    const output = runs.length
-    runs.push({
-      output,
-      color: OUTPUT_COLORS[output % OUTPUT_COLORS.length],
-      limit,
-      cells: order.slice(i, i + limit),
-    })
+  const wire: number[][] = Array.from({ length: sender.outputs }, () => [])
+  let oi = 0
+  for (const idx of order) {
+    while (oi < sender.outputs && wire[oi].length >= limit) oi++
+    if (oi >= sender.outputs) break // sin capacidad: quedan sin asignar
+    wire[oi].push(idx)
   }
-  return runs
+  return wire
+}
+
+/** Devuelve el cableado de la pantalla (manual si existe, si no el automático). */
+export function resolveWire(
+  screen: Screen,
+  preset: ModulePreset,
+  sender: Sender,
+): number[][] {
+  const base = screen.wire ?? autoWire(screen, preset, sender)
+  // normaliza a la cantidad de salidas del sender y descarta índices fuera de rango
+  const total = screen.cols * screen.rows
+  const wire: number[][] = Array.from({ length: sender.outputs }, (_, i) =>
+    (base[i] ?? []).filter((idx) => idx < total),
+  )
+  return wire
 }

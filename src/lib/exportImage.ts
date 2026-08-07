@@ -1,7 +1,7 @@
 import type { Screen } from '../types'
 import { presetById } from '../data/modulePresets'
 import { senderById } from '../data/senders'
-import { cableRuns } from './cabling'
+import { OUTPUT_COLORS, resolveWire } from './cabling'
 
 export interface ExportOptions {
   alpha: boolean
@@ -50,23 +50,24 @@ export function exportScreenPng(screen: Screen, opts: ExportOptions) {
   }
 
   if (opts.cabling) {
-    const runs = cableRuns(screen, preset, senderById(screen.senderId))
+    const wire = resolveWire(screen, preset, senderById(screen.senderId))
     ctx.lineWidth = Math.max(2, cellW * 0.12)
     ctx.lineJoin = 'round'
     ctx.lineCap = 'round'
-    for (const run of runs) {
-      ctx.strokeStyle = run.color
+    wire.forEach((arr, o) => {
+      if (!arr.length) return
+      ctx.strokeStyle = OUTPUT_COLORS[o % OUTPUT_COLORS.length]
       ctx.beginPath()
-      run.cells.forEach((cl, idx) => {
-        const r = Math.floor(cl.index / screen.cols)
-        const c = cl.index % screen.cols
+      arr.forEach((index, idx) => {
+        const r = Math.floor(index / screen.cols)
+        const c = index % screen.cols
         const px = c * cellW + cellW / 2
         const py = r * cellH + cellH / 2
         if (idx === 0) ctx.moveTo(px, py)
         else ctx.lineTo(px, py)
       })
       ctx.stroke()
-    }
+    })
   }
 
   if (opts.name) {

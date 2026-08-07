@@ -4,7 +4,7 @@ import { useStore } from '../store'
 import { presetById } from '../data/modulePresets'
 import { senderById } from '../data/senders'
 import { screenMetrics } from '../lib/metrics'
-import { cableRuns, serpentineOrder } from '../lib/cabling'
+import { OUTPUT_COLORS, resolveWire, serpentineOrder } from '../lib/cabling'
 import { Draggable } from './Draggable'
 import { IconGear, IconPalette, IconTrash } from './icons'
 
@@ -39,10 +39,16 @@ export function ScreenView({ screen }: { screen: Screen }) {
     return map
   }, [screen.cols, screen.rows])
 
-  const runs = useMemo(
-    () => cableRuns(screen, preset, sender),
-    [screen, preset, sender],
-  )
+  const wire = useMemo(() => resolveWire(screen, preset, sender), [screen, preset, sender])
+
+  const colorOf = useMemo(() => {
+    const map = new Map<number, string>()
+    wire.forEach((arr, o) => {
+      const col = OUTPUT_COLORS[o % OUTPUT_COLORS.length]
+      arr.forEach((idx) => map.set(idx, col))
+    })
+    return map
+  }, [wire])
 
   const offSet = useMemo(() => new Set(screen.off), [screen.off])
 
@@ -58,13 +64,19 @@ export function ScreenView({ screen }: { screen: Screen }) {
     const r = Math.floor(i / screen.cols)
     const c = i % screen.cols
     const shade = (r + c) % 2 === 0 ? screen.palette[0] : screen.palette[1]
+    const col = colorOf.get(i)
     cells.push(
       <div
         key={i}
         className={`mod ${isOff ? 'off' : ''}`}
         data-sid={screen.id}
         data-idx={i}
-        style={{ width: cellW, height: cellH, background: shade }}
+        style={{
+          width: cellW,
+          height: cellH,
+          background: shade,
+          boxShadow: col ? `inset 0 4px 0 ${col}, inset 0 0 0 0.5px rgba(0,0,0,0.22)` : undefined,
+        }}
         onClick={(e) => {
           e.stopPropagation()
           if (tool === 'hand') toggleModule(screen.id, i)
@@ -130,24 +142,26 @@ export function ScreenView({ screen }: { screen: Screen }) {
       </div>
 
       <svg className="wire" viewBox={`0 0 ${gridW} ${gridH}`} preserveAspectRatio="none" width={gridW} height={gridH}>
-        {runs.map((run) => {
-          const pts = run.cells.map((cl) => center(cl.index))
+        {wire.map((arr, o) => {
+          if (!arr.length) return null
+          const color = OUTPUT_COLORS[o % OUTPUT_COLORS.length]
+          const pts = arr.map((idx) => center(idx))
           const line = pts.map((p) => `${p.x},${p.y}`).join(' ')
           const s0 = pts[0]
           return (
-            <g key={run.output}>
+            <g key={o}>
               <polyline
                 points={line}
                 fill="none"
-                stroke={run.color}
+                stroke={color}
                 strokeWidth={4.5}
                 strokeOpacity={0.9}
                 strokeLinejoin="round"
                 strokeLinecap="round"
               />
-              <circle cx={s0.x} cy={s0.y} r={12} fill={run.color} />
+              <circle cx={s0.x} cy={s0.y} r={12} fill={color} />
               <text x={s0.x} y={s0.y + 3} fontSize={8} fontFamily="monospace" fill="#08110c" textAnchor="middle" fontWeight={700}>
-                S{run.output + 1}
+                S{o + 1}
               </text>
             </g>
           )

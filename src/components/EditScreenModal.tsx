@@ -4,6 +4,7 @@ import { MODULE_PRESETS, presetById } from '../data/modulePresets'
 import { SENDERS, senderById } from '../data/senders'
 import { modulesPerOutput } from '../lib/cabling'
 import { screenMetrics } from '../lib/metrics'
+import { Dropdown } from './Dropdown'
 import { IconClose, IconTrash } from './icons'
 
 type Unit = 'px' | 'm' | 'mod'
@@ -75,15 +76,11 @@ export function EditScreenModal() {
           <div className="cols2">
             <div className="card">
               <h3>Tamaño Módulo</h3>
-              <select
-                className="select"
+              <Dropdown
                 value={screen.presetId}
-                onChange={(e) => updateScreen(screen.id, { presetId: e.target.value })}
-              >
-                {MODULE_PRESETS.map((p) => (
-                  <option key={p.id} value={p.id}>{p.label}</option>
-                ))}
-              </select>
+                options={MODULE_PRESETS.map((p) => ({ value: p.id, label: p.label }))}
+                onChange={(v) => updateScreen(screen.id, { presetId: v })}
+              />
               <div style={{ textAlign: 'center', marginTop: 18, fontFamily: 'var(--mono)', color: 'var(--muted)' }}>
                 {preset.wPx} × {preset.hPx} px por módulo
               </div>
@@ -141,15 +138,11 @@ export function EditScreenModal() {
             <div className="sender-row">
               <div>
                 <label className="field-lbl">Modelo de Sender</label>
-                <select
-                  className="select"
+                <Dropdown
                   value={screen.senderId}
-                  onChange={(e) => updateScreen(screen.id, { senderId: e.target.value })}
-                >
-                  {SENDERS.map((s) => (
-                    <option key={s.id} value={s.id}>{s.brand} {s.model}</option>
-                  ))}
-                </select>
+                  options={SENDERS.map((s) => ({ value: s.id, label: `${s.brand} ${s.model}` }))}
+                  onChange={(v) => updateScreen(screen.id, { senderId: v })}
+                />
               </div>
               <div>
                 <label className="field-lbl">Salidas</label>

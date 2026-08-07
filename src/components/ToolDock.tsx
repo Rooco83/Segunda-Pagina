@@ -1,5 +1,5 @@
 import { useStore } from '../store'
-import { IconBrush, IconFit, IconHand, IconZoomOut } from './icons'
+import { IconBrush, IconCable, IconFit, IconHand, IconZoomOut } from './icons'
 
 export function ToolDock() {
   const zoom = useStore((s) => s.zoom)
@@ -23,6 +23,13 @@ export function ToolDock() {
           onClick={() => setTool('brush')}
         >
           <IconBrush />
+        </button>
+        <button
+          className={`dockbtn ${tool === 'cable' ? 'active' : ''}`}
+          title="Cablear: asigná módulos a la salida activa"
+          onClick={() => setTool('cable')}
+        >
+          <IconCable />
         </button>
       </div>
       <div className="group">

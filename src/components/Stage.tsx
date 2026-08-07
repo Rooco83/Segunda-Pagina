@@ -12,6 +12,7 @@ export function Stage() {
   const select = useStore((s) => s.select)
   const tool = useStore((s) => s.tool)
   const setModuleOff = useStore((s) => s.setModuleOff)
+  const assignModule = useStore((s) => s.assignModule)
   const snapshot = useStore((s) => s.snapshot)
 
   const stageRef = useRef<HTMLDivElement>(null)
@@ -19,7 +20,7 @@ export function Stage() {
   const [pan, setPan] = useState({ x: 80, y: 40 })
   const [panning, setPanning] = useState(false)
   const drag = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null)
-  const paint = useRef<{ target: boolean; done: Set<string> } | null>(null)
+  const paint = useRef<{ mode: 'brush' | 'cable'; target: boolean; done: Set<string> } | null>(null)
 
   const fit = useCallback(() => {
     const stage = stageRef.current
@@ -63,13 +64,14 @@ export function Stage() {
 
   const onPointerDown = (e: React.PointerEvent) => {
     const mod = (e.target as HTMLElement).closest('.mod') as HTMLElement | null
-    if (tool === 'brush' && mod) {
+    if ((tool === 'brush' || tool === 'cable') && mod) {
       const sid = mod.dataset.sid!
       const idx = Number(mod.dataset.idx)
       const target = !mod.classList.contains('off')
       snapshot()
-      setModuleOff(sid, idx, target)
-      paint.current = { target, done: new Set([`${sid}:${idx}`]) }
+      if (tool === 'brush') setModuleOff(sid, idx, target)
+      else assignModule(sid, idx)
+      paint.current = { mode: tool, target, done: new Set([`${sid}:${idx}`]) }
       stageRef.current?.setPointerCapture(e.pointerId)
       return
     }
@@ -87,7 +89,11 @@ export function Stage() {
         const key = `${mod.dataset.sid}:${mod.dataset.idx}`
         if (!paint.current.done.has(key)) {
           paint.current.done.add(key)
-          setModuleOff(mod.dataset.sid!, Number(mod.dataset.idx), paint.current.target)
+          if (paint.current.mode === 'brush') {
+            setModuleOff(mod.dataset.sid!, Number(mod.dataset.idx), paint.current.target)
+          } else {
+            assignModule(mod.dataset.sid!, Number(mod.dataset.idx))
+          }
         }
       }
       return
@@ -104,7 +110,7 @@ export function Stage() {
   return (
     <main
       ref={stageRef}
-      className={`stage ${panning ? 'panning' : ''} ${tool === 'brush' ? 'brush' : ''}`}
+      className={`stage ${panning ? 'panning' : ''} ${tool !== 'hand' ? 'brush' : ''}`}
       onWheel={onWheel}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

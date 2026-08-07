@@ -1,8 +1,11 @@
 import { create } from 'zustand'
 import type { AccentKey, Screen } from './types'
 import { accentByKey } from './data/accents'
+import { presetById } from './data/modulePresets'
+import { senderById } from './data/senders'
+import { autoWire, modulesPerOutput, resolveWire } from './lib/cabling'
 
-export type Tool = 'hand' | 'brush'
+export type Tool = 'hand' | 'brush' | 'cable'
 
 let idSeq = 1
 const newId = () => `s${idSeq++}`
@@ -47,6 +50,7 @@ interface State {
   exportOpen: boolean
   zoom: number
   tool: Tool
+  activeOutput: number | null
   past: Screen[][]
   future: Screen[][]
 
@@ -65,6 +69,9 @@ interface State {
   setAccent: (key: AccentKey) => void
   setZoom: (z: number) => void
   setTool: (t: Tool) => void
+  selectOutput: (i: number) => void
+  assignModule: (id: string, index: number) => void
+  autoCable: (id: string) => void
 
   snapshot: () => void
   undo: () => void
@@ -141,6 +148,7 @@ export const useStore = create<State>((set, get) => ({
   exportOpen: false,
   zoom: 0.62,
   tool: 'hand',
+  activeOutput: null,
   past: [],
   future: [],
 
@@ -216,11 +224,46 @@ export const useStore = create<State>((set, get) => ({
       }),
     ),
 
-  select: (id) => set({ selectedId: id }),
+  select: (id) =>
+    set((s) => (s.selectedId === id ? {} : { selectedId: id, activeOutput: null })),
   openEdit: (id) => set({ editingId: id, selectedId: id }),
   closeEdit: () => set({ editingId: null }),
   setExportOpen: (v) => set({ exportOpen: v }),
-  setTool: (t) => set({ tool: t }),
+  setTool: (t) =>
+    set((s) => ({ tool: t, activeOutput: t === 'cable' ? (s.activeOutput ?? 0) : s.activeOutput })),
+
+  selectOutput: (i) => set({ activeOutput: i, tool: 'cable' }),
+
+  assignModule: (id, index) =>
+    set((s) => {
+      const out = s.activeOutput
+      if (out == null) return {}
+      return {
+        screens: s.screens.map((sc) => {
+          if (sc.id !== id) return sc
+          const preset = presetById(sc.presetId)
+          const sender = senderById(sc.senderId)
+          const limit = modulesPerOutput(preset, sender)
+          const wire = resolveWire(sc, preset, sender).map((a) => [...a])
+          while (wire.length <= out) wire.push([])
+          const wasIn = wire[out].includes(index)
+          for (const a of wire) {
+            const k = a.indexOf(index)
+            if (k >= 0) a.splice(k, 1)
+          }
+          if (!wasIn && wire[out].length < limit) wire[out].push(index)
+          return { ...sc, wire }
+        }),
+      }
+    }),
+
+  autoCable: (id) =>
+    mutate(set, (screens) =>
+      screens.map((sc) => {
+        if (sc.id !== id) return sc
+        return { ...sc, wire: autoWire(sc, presetById(sc.presetId), senderById(sc.senderId)) }
+      }),
+    ),
 
   setAccent: (key) => {
     try {

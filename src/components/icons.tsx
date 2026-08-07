@@ -86,6 +86,14 @@ export const IconZoomOut = s(
 export const IconFit = s(
   <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m8 0h3a2 2 0 0 0 2-2v-3" />,
 )
+export const IconCable = s(
+  <>
+    <path d="M9 7V4a2 2 0 0 1 4 0v3" />
+    <rect x="7" y="7" width="8" height="4" rx="1" />
+    <path d="M11 11v4a3 3 0 0 0 6 0v-1" />
+    <circle cx="17" cy="19" r="2" />
+  </>,
+)
 export const IconLayers = s(
   <>
     <path d="m12 2 9 5-9 5-9-5z" />

@@ -1,10 +1,14 @@
 import { useStore } from '../store'
 import { presetById } from '../data/modulePresets'
 import { senderById } from '../data/senders'
-import { cableRuns } from '../lib/cabling'
+import { OUTPUT_COLORS, modulesPerOutput, resolveWire } from '../lib/cabling'
 
 export function CablePanel() {
   const screen = useStore((s) => s.screens.find((sc) => sc.id === s.selectedId) ?? null)
+  const tool = useStore((s) => s.tool)
+  const activeOutput = useStore((s) => s.activeOutput)
+  const selectOutput = useStore((s) => s.selectOutput)
+  const autoCable = useStore((s) => s.autoCable)
 
   if (!screen) {
     return (
@@ -19,7 +23,10 @@ export function CablePanel() {
 
   const preset = presetById(screen.presetId)
   const sender = senderById(screen.senderId)
-  const runs = cableRuns(screen, preset, sender)
+  const wire = resolveWire(screen, preset, sender)
+  const limit = modulesPerOutput(preset, sender)
+  const assigned = wire.reduce((n, a) => n + a.length, 0)
+  const total = screen.cols * screen.rows
 
   return (
     <aside className="cable-panel">
@@ -30,24 +37,31 @@ export function CablePanel() {
         Sender: <b>{sender.brand} {sender.model}</b> · {sender.outputs} salidas
       </div>
       <div className="cp-list">
-        {runs.map((run, i) => (
-          <div key={run.output} className={`cp-out ${i === 0 ? 'sel' : ''}`}>
-            <span className="cp-color" style={{ background: run.color }} />
-            <div className="cp-mid">
-              <div className="cp-name">Salida {run.output + 1}</div>
-              <div className="cp-bar">
-                <i style={{ width: `${(run.cells.length / run.limit) * 100}%`, background: run.color }} />
+        {wire.map((arr, o) => {
+          const color = OUTPUT_COLORS[o % OUTPUT_COLORS.length]
+          const active = tool === 'cable' && activeOutput === o
+          return (
+            <div key={o} className={`cp-out ${active ? 'sel' : ''}`} onClick={() => selectOutput(o)}>
+              <span className="cp-color" style={{ background: color }} />
+              <div className="cp-mid">
+                <div className="cp-name">Salida {o + 1}</div>
+                <div className="cp-bar">
+                  <i style={{ width: `${Math.min(100, (arr.length / limit) * 100)}%`, background: color }} />
+                </div>
               </div>
+              <span className="cp-count">{arr.length}/{limit}</span>
             </div>
-            <span className="cp-count">
-              {run.cells.length}/{run.limit}
-            </span>
-          </div>
-        ))}
+          )
+        })}
       </div>
+      <div className="cp-cap">
+        Asignados <b>{assigned}</b> / {total} módulos{assigned < total ? ' · faltan cablear' : ''}
+      </div>
+      <button className="cp-btn" onClick={() => autoCable(screen.id)}>Auto-cablear</button>
       <div className="cp-hint">
-        Elegí una salida, tocá el módulo inicial y extendé la conexión módulo a módulo.
-        Al llegar al límite de la salida, no deja conectar más.
+        {tool === 'cable'
+          ? 'Modo cable activo. Tocá o arrastrá sobre los módulos para asignarlos a la salida elegida (hasta su límite).'
+          : 'Tocá una salida para empezar a cablearla, o usá Auto-cablear.'}
       </div>
     </aside>
   )
