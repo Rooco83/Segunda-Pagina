@@ -292,7 +292,10 @@ export const useStore = create<State>((set, get) => ({
       }
     }),
 
-  // Auto-cablear: si no se cableó nada, cablea todo; si hay manual, completa solo las salidas vacías.
+  // Auto-cablear:
+  //  - Sin cableado manual: reparte automáticamente al MÁXIMO de módulos por salida.
+  //  - Con la 1ª salida cableada a mano: REPLICA esa misma cantidad en las salidas
+  //    vacías siguientes (no las lleva al tope), siguiendo el orden serpentina.
   autoCable: (id) =>
     mutate(set, (screens) =>
       screens.map((sc) => {
@@ -304,17 +307,21 @@ export const useStore = create<State>((set, get) => ({
         if (!manual || manual.every((a) => a.length === 0)) {
           return { ...sc, wire: autoWire(sc, preset, sender) }
         }
+        // tamaño de "tirada" = cantidad de la primera salida cableada a mano
+        const firstManual = manual.find((a) => a.length > 0)!
+        const chunk = Math.max(1, Math.min(limit, firstManual.length))
+
         const wire = manual.map((a) => [...a])
         while (wire.length < sender.outputs) wire.push([])
         const assigned = new Set(wire.flat())
         const order = serpentineOrder(sc.cols, sc.rows).map((c) => c.index)
         const remaining = order.filter((idx) => !assigned.has(idx))
-        let oi = 0
-        for (const idx of remaining) {
-          // saltear salidas que el usuario ya tocó (no vacías en el manual) o ya llenas
-          while (oi < sender.outputs && ((manual[oi]?.length ?? 0) > 0 || wire[oi].length >= limit)) oi++
-          if (oi >= sender.outputs) break
-          wire[oi].push(idx)
+
+        let ri = 0
+        for (let oi = 0; oi < sender.outputs && ri < remaining.length; oi++) {
+          if ((manual[oi]?.length ?? 0) > 0) continue // no tocar las salidas manuales
+          wire[oi] = remaining.slice(ri, ri + chunk)
+          ri += chunk
         }
         return { ...sc, wire }
       }),
