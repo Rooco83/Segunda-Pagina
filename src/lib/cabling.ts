@@ -63,17 +63,14 @@ export function autoWire(
   return wire
 }
 
-/** Devuelve el cableado de la pantalla (manual si existe, si no el automático). */
-export function resolveWire(
-  screen: Screen,
-  preset: ModulePreset,
-  sender: Sender,
-): number[][] {
-  const base = screen.wire ?? autoWire(screen, preset, sender)
-  // normaliza a la cantidad de salidas del sender y descarta índices fuera de rango
+/**
+ * Cableado actual de la pantalla: SOLO lo cableado (manual o auto ya aplicado).
+ * Si nunca se cableó, devuelve salidas vacías (no muestra preview automático).
+ */
+export function resolveWire(screen: Screen, sender: Sender): number[][] {
+  const base = screen.wire ?? []
   const total = screen.cols * screen.rows
-  const wire: number[][] = Array.from({ length: sender.outputs }, (_, i) =>
+  return Array.from({ length: sender.outputs }, (_, i) =>
     (base[i] ?? []).filter((idx) => idx < total),
   )
-  return wire
 }

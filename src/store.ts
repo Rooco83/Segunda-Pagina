@@ -6,7 +6,7 @@ import { senderById } from './data/senders'
 import { autoWire, modulesPerOutput, serpentineOrder } from './lib/cabling'
 import { screenSizePx, stackIfOverlapping } from './lib/layout'
 
-export type Tool = 'hand' | 'move' | 'brush' | 'cable'
+export type Tool = 'hand' | 'brush' | 'cable'
 
 let idSeq = 1
 const newId = () => `s${idSeq++}`
@@ -76,6 +76,8 @@ interface State {
   startCableStroke: (id: string, index: number) => void
   assignModule: (id: string, index: number) => void
   autoCable: (id: string) => void
+  resetOutput: (id: string, output: number) => void
+  resetWire: (id: string) => void
 
   snapshot: () => void
   undo: () => void
@@ -316,6 +318,20 @@ export const useStore = create<State>((set, get) => ({
         }
         return { ...sc, wire }
       }),
+    ),
+
+  resetOutput: (id, output) =>
+    mutate(set, (screens) =>
+      screens.map((sc) => {
+        if (sc.id !== id || !sc.wire) return sc
+        const wire = sc.wire.map((a, i) => (i === output ? [] : [...a]))
+        return { ...sc, wire }
+      }),
+    ),
+
+  resetWire: (id) =>
+    mutate(set, (screens) =>
+      screens.map((sc) => (sc.id === id ? { ...sc, wire: undefined } : sc)),
     ),
 
   setAccent: (key) => {

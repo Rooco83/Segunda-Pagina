@@ -36,7 +36,7 @@ export function ScreenView({ screen }: { screen: Screen }) {
     return map
   }, [screen.cols, screen.rows])
 
-  const wire = useMemo(() => resolveWire(screen, preset, sender), [screen, preset, sender])
+  const wire = useMemo(() => resolveWire(screen, sender), [screen, sender])
 
   const colorOf = useMemo(() => {
     const map = new Map<number, string>()

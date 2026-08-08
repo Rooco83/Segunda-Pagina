@@ -199,6 +199,9 @@ button { font-family: inherit; }
 .dd-item.sel { color: var(--acc); }
 .cp-btn { width: 100%; margin-top: 10px; font-size: 12px; font-weight: 600; color: var(--text); background: var(--panel-3); border: 1px solid var(--hair-2); border-radius: var(--r-sm); padding: 9px; cursor: pointer; }
 .cp-btn:hover { border-color: var(--acc); color: var(--acc); }
+.cp-btn-danger:hover { border-color: var(--danger); color: var(--danger); }
+.cp-reset { flex: 0 0 auto; width: 20px; height: 20px; border-radius: 5px; border: none; background: transparent; color: var(--muted-2); cursor: pointer; font-size: 12px; line-height: 1; }
+.cp-reset:hover { background: var(--danger-soft); color: var(--danger); }
 .cp-cap { font-family: var(--mono); font-size: 10px; color: var(--muted-2); margin-top: 8px; }
 .cp-cap b { color: var(--power); }
 .seg { display: flex; background: var(--panel-2); border: 1px solid var(--hair-2); border-radius: var(--r-sm); padding: 4px; gap: 4px; }

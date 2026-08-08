@@ -9,6 +9,8 @@ export function CablePanel() {
   const activeOutput = useStore((s) => s.activeOutput)
   const selectOutput = useStore((s) => s.selectOutput)
   const autoCable = useStore((s) => s.autoCable)
+  const resetOutput = useStore((s) => s.resetOutput)
+  const resetWire = useStore((s) => s.resetWire)
 
   if (!screen) {
     return (
@@ -23,7 +25,7 @@ export function CablePanel() {
 
   const preset = presetById(screen.presetId)
   const sender = senderById(screen.senderId)
-  const wire = resolveWire(screen, preset, sender)
+  const wire = resolveWire(screen, sender)
   const limit = modulesPerOutput(preset, sender)
   const assigned = wire.reduce((n, a) => n + a.length, 0)
   const total = screen.cols * screen.rows
@@ -50,6 +52,16 @@ export function CablePanel() {
                 </div>
               </div>
               <span className="cp-count">{arr.length}/{limit}</span>
+              <button
+                className="cp-reset"
+                title={`Resetear Salida ${o + 1}`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  resetOutput(screen.id, o)
+                }}
+              >
+                ✕
+              </button>
             </div>
           )
         })}
@@ -57,7 +69,10 @@ export function CablePanel() {
       <div className="cp-cap">
         Asignados <b>{assigned}</b> / {total} módulos{assigned < total ? ' · faltan cablear' : ''}
       </div>
-      <button className="cp-btn" onClick={() => autoCable(screen.id)}>Auto-cablear</button>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="cp-btn" onClick={() => autoCable(screen.id)}>Auto-cablear</button>
+        <button className="cp-btn cp-btn-danger" onClick={() => resetWire(screen.id)}>Reset todo</button>
+      </div>
       <div className="cp-hint">
         {tool === 'cable'
           ? 'Modo cable: tocá el módulo de entrada y arrastrá hasta donde quieras soltar (o hasta el límite de la salida). Podés cablear menos que el tope.'

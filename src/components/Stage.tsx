@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
-import { contentBounds } from '../lib/layout'
+import { contentBounds, screenSizePx, snapPosition } from '../lib/layout'
 import { ScreenView } from './ScreenView'
 import { CablePanel } from './CablePanel'
 
@@ -80,8 +80,8 @@ export function Stage() {
       return
     }
 
-    // Mover pantalla completa
-    if (tool === 'move') {
+    // Mano sobre una pantalla: moverla (con imantado)
+    if (tool === 'hand') {
       const screenEl = el.closest('.screen') as HTMLElement | null
       if (screenEl) {
         const id = screenEl.dataset.screen!
@@ -121,7 +121,18 @@ export function Stage() {
     }
     if (moveRef.current) {
       const m = moveRef.current
-      updateScreen(m.id, { x: m.ox + (e.clientX - m.sx) / zoom, y: m.oy + (e.clientY - m.sy) / zoom })
+      const rawX = m.ox + (e.clientX - m.sx) / zoom
+      const rawY = m.oy + (e.clientY - m.sy) / zoom
+      const all = useStore.getState().screens
+      const me = all.find((s) => s.id === m.id)
+      if (me) {
+        const { w, h } = screenSizePx(me)
+        const others = all
+          .filter((s) => s.id !== m.id)
+          .map((s) => ({ x: s.x, y: s.y, ...screenSizePx(s) }))
+        const snapped = snapPosition(rawX, rawY, w, h, others, 12 / zoom)
+        updateScreen(m.id, snapped)
+      }
       return
     }
     if (drag.current) {
@@ -139,7 +150,7 @@ export function Stage() {
   return (
     <main
       ref={stageRef}
-      className={`stage ${panning ? 'panning' : ''} ${tool === 'brush' || tool === 'cable' ? 'brush' : ''} ${tool === 'move' ? 'move' : ''}`}
+      className={`stage ${panning ? 'panning' : ''} ${tool === 'brush' || tool === 'cable' ? 'brush' : ''}`}
       onWheel={onWheel}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

@@ -50,7 +50,7 @@ export function exportScreenPng(screen: Screen, opts: ExportOptions) {
   }
 
   if (opts.cabling) {
-    const wire = resolveWire(screen, preset, senderById(screen.senderId))
+    const wire = resolveWire(screen, senderById(screen.senderId))
     ctx.lineWidth = Math.max(2, cellW * 0.12)
     ctx.lineJoin = 'round'
     ctx.lineCap = 'round'
