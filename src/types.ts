@@ -47,8 +47,12 @@ export interface Screen {
   namePos: { x: number; y: number }
   /** posición del logo dentro de la pantalla (px relativos) */
   logoPos: { x: number; y: number }
-  /** cableado manual: por cada salida, lista ordenada de índices de módulo */
+  /** cableado: por cada salida, lista ordenada de índices de módulo */
   wire?: number[][]
+  /** qué salidas fueron cableadas a mano (no las toca el auto) */
+  wireLocked?: boolean[]
+  /** si ya se usó Auto-cablear (habilita el re-ajuste adaptativo al prender/apagar) */
+  autoCabled?: boolean
 }
 
 export interface Project {

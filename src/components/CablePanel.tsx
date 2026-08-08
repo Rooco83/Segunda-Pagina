@@ -28,7 +28,7 @@ export function CablePanel() {
   const wire = resolveWire(screen, sender)
   const limit = modulesPerOutput(preset, sender)
   const assigned = wire.reduce((n, a) => n + a.length, 0)
-  const total = screen.cols * screen.rows
+  const total = screen.cols * screen.rows - screen.off.length // módulos encendidos
 
   return (
     <aside className="cable-panel">
@@ -67,7 +67,8 @@ export function CablePanel() {
         })}
       </div>
       <div className="cp-cap">
-        Asignados <b>{assigned}</b> / {total} módulos{assigned < total ? ' · faltan cablear' : ''}
+        Cableados <b>{assigned}</b> / {total} encendidos
+        {assigned < total ? ` · faltan ${total - assigned} (no alcanzan las salidas)` : ' · completo'}
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
         <button className="cp-btn" onClick={() => autoCable(screen.id)}>Auto-cablear</button>

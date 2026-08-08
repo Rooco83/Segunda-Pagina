@@ -3,7 +3,7 @@ import type { AccentKey, Screen } from './types'
 import { accentByKey } from './data/accents'
 import { presetById } from './data/modulePresets'
 import { senderById } from './data/senders'
-import { autoWire, modulesPerOutput, serpentineOrder } from './lib/cabling'
+import { flowCable, modulesPerOutput } from './lib/cabling'
 import { screenSizePx, stackIfOverlapping } from './lib/layout'
 
 export type Tool = 'hand' | 'brush' | 'cable'
@@ -12,6 +12,14 @@ let idSeq = 1
 const newId = () => `s${idSeq++}`
 
 const emptyWire = (n: number): number[][] => Array.from({ length: n }, () => [])
+
+// Recalcula el cableado de una pantalla tras cambiar módulos: sanea las salidas
+// manuales (quita apagados) y, si ya se auto-cableó, re-genera las automáticas.
+function reflowScreen(sc: Screen): Screen {
+  if (!sc.wire) return sc
+  const wire = flowCable(sc, presetById(sc.presetId), senderById(sc.senderId), !!sc.autoCabled)
+  return { ...sc, wire }
+}
 
 function makeScreen(partial: Partial<Screen> = {}): Screen {
   return {
@@ -202,7 +210,7 @@ export const useStore = create<State>((set, get) => ({
         const off = sc.off.includes(index)
           ? sc.off.filter((i) => i !== index)
           : [...sc.off, index]
-        return { ...sc, off }
+        return reflowScreen({ ...sc, off })
       }),
     ),
 
@@ -211,9 +219,11 @@ export const useStore = create<State>((set, get) => ({
       screens: s.screens.map((sc) => {
         if (sc.id !== id) return sc
         const has = sc.off.includes(index)
-        if (off && !has) return { ...sc, off: [...sc.off, index] }
-        if (!off && has) return { ...sc, off: sc.off.filter((i) => i !== index) }
-        return sc
+        let noff = sc.off
+        if (off && !has) noff = [...sc.off, index]
+        else if (!off && has) noff = sc.off.filter((i) => i !== index)
+        else return sc
+        return reflowScreen({ ...sc, off: noff })
       }),
     })),
 
@@ -235,7 +245,7 @@ export const useStore = create<State>((set, get) => ({
           const c = i % sc.cols
           return r * sc.cols + (sc.cols - 1 - c)
         })
-        return { ...sc, off }
+        return reflowScreen({ ...sc, off })
       }),
     ),
 
@@ -248,7 +258,7 @@ export const useStore = create<State>((set, get) => ({
 
   selectOutput: (i) => set({ activeOutput: i, tool: 'cable' }),
 
-  // Inicia el recorrido de la salida activa: arranca de cero (el auto es solo vista previa).
+  // Inicia el recorrido de la salida activa (la marca como manual/bloqueada).
   startCableStroke: (id, index) =>
     set((s) => {
       const out = s.activeOutput
@@ -258,18 +268,21 @@ export const useStore = create<State>((set, get) => ({
           if (sc.id !== id) return sc
           const sender = senderById(sc.senderId)
           const wire = (sc.wire ?? emptyWire(sender.outputs)).map((a) => [...a])
+          const locked = (sc.wireLocked ?? []).slice()
           while (wire.length <= out) wire.push([])
+          while (locked.length <= out) locked.push(false)
           for (const a of wire) {
             const k = a.indexOf(index)
             if (k >= 0) a.splice(k, 1)
           }
           wire[out] = [index]
-          return { ...sc, wire }
+          locked[out] = true
+          return { ...sc, wire, wireLocked: locked }
         }),
       }
     }),
 
-  // Extiende el recorrido de la salida activa hasta su límite (solo agrega, nunca al tope forzado).
+  // Extiende el recorrido de la salida activa hasta su límite (solo agrega).
   assignModule: (id, index) =>
     set((s) => {
       const out = s.activeOutput
@@ -280,50 +293,30 @@ export const useStore = create<State>((set, get) => ({
           const sender = senderById(sc.senderId)
           const limit = modulesPerOutput(presetById(sc.presetId), sender)
           const wire = (sc.wire ?? emptyWire(sender.outputs)).map((a) => [...a])
+          const locked = (sc.wireLocked ?? []).slice()
           while (wire.length <= out) wire.push([])
+          while (locked.length <= out) locked.push(false)
           if (wire[out].includes(index) || wire[out].length >= limit) return sc
           for (const a of wire) {
             const k = a.indexOf(index)
             if (k >= 0) a.splice(k, 1)
           }
           wire[out].push(index)
-          return { ...sc, wire }
+          locked[out] = true
+          return { ...sc, wire, wireLocked: locked }
         }),
       }
     }),
 
-  // Auto-cablear:
-  //  - Sin cableado manual: reparte automáticamente al MÁXIMO de módulos por salida.
-  //  - Con la 1ª salida cableada a mano: REPLICA esa misma cantidad en las salidas
-  //    vacías siguientes (no las lleva al tope), siguiendo el orden serpentina.
+  // Auto-cablear: copia el patrón de la 1ª salida manual (forma+dirección+largo) a las
+  // salidas automáticas, respetando huecos; sin manual, reparte al máximo por salida.
   autoCable: (id) =>
     mutate(set, (screens) =>
       screens.map((sc) => {
         if (sc.id !== id) return sc
-        const preset = presetById(sc.presetId)
-        const sender = senderById(sc.senderId)
-        const limit = modulesPerOutput(preset, sender)
-        const manual = sc.wire
-        if (!manual || manual.every((a) => a.length === 0)) {
-          return { ...sc, wire: autoWire(sc, preset, sender) }
-        }
-        // tamaño de "tirada" = cantidad de la primera salida cableada a mano
-        const firstManual = manual.find((a) => a.length > 0)!
-        const chunk = Math.max(1, Math.min(limit, firstManual.length))
-
-        const wire = manual.map((a) => [...a])
-        while (wire.length < sender.outputs) wire.push([])
-        const assigned = new Set(wire.flat())
-        const order = serpentineOrder(sc.cols, sc.rows).map((c) => c.index)
-        const remaining = order.filter((idx) => !assigned.has(idx))
-
-        let ri = 0
-        for (let oi = 0; oi < sender.outputs && ri < remaining.length; oi++) {
-          if ((manual[oi]?.length ?? 0) > 0) continue // no tocar las salidas manuales
-          wire[oi] = remaining.slice(ri, ri + chunk)
-          ri += chunk
-        }
-        return { ...sc, wire }
+        const withFlag = { ...sc, autoCabled: true }
+        const wire = flowCable(withFlag, presetById(sc.presetId), senderById(sc.senderId), true)
+        return { ...withFlag, wire }
       }),
     ),
 
@@ -332,13 +325,17 @@ export const useStore = create<State>((set, get) => ({
       screens.map((sc) => {
         if (sc.id !== id || !sc.wire) return sc
         const wire = sc.wire.map((a, i) => (i === output ? [] : [...a]))
-        return { ...sc, wire }
+        const locked = (sc.wireLocked ?? []).slice()
+        if (locked[output] !== undefined) locked[output] = false
+        return reflowScreen({ ...sc, wire, wireLocked: locked })
       }),
     ),
 
   resetWire: (id) =>
     mutate(set, (screens) =>
-      screens.map((sc) => (sc.id === id ? { ...sc, wire: undefined } : sc)),
+      screens.map((sc) =>
+        sc.id === id ? { ...sc, wire: undefined, wireLocked: undefined, autoCabled: false } : sc,
+      ),
     ),
 
   setAccent: (key) => {
