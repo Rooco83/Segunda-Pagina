@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { contentBounds, screenSizePx, snapPosition } from '../lib/layout'
 import { ScreenView } from './ScreenView'
@@ -26,42 +26,67 @@ export function Stage() {
   const paint = useRef<{ mode: 'brush' | 'cable'; target: boolean; done: Set<string> } | null>(null)
   const moveRef = useRef<{ id: string; sx: number; sy: number; ox: number; oy: number } | null>(null)
 
-  const fit = useCallback(() => {
-    const stage = stageRef.current
-    if (!stage) return
-    const sw = stage.clientWidth
-    const sh = stage.clientHeight
-    const b = contentBounds(useStore.getState().screens)
-    if (!b.w || !b.h) return
-    const z = Math.max(0.15, Math.min((sw - 160) / b.w, (sh - 160) / b.h, 1))
-    setZoom(z)
-    setPan({ x: (sw - b.w * z) / 2 - b.minX * z, y: (sh - b.h * z) / 2 - b.minY * z })
-  }, [setZoom])
+  const doFit = useCallback(
+    (useSelection: boolean) => {
+      const stage = stageRef.current
+      if (!stage) return
+      const sw = stage.clientWidth
+      const sh = stage.clientHeight
+      const st = useStore.getState()
+      let b = contentBounds(st.screens)
+      if (useSelection && st.selectedId) {
+        const sc = st.screens.find((s) => s.id === st.selectedId)
+        if (sc) {
+          const sz = screenSizePx(sc)
+          b = { minX: sc.x, minY: sc.y, w: sz.w, h: sz.h }
+        }
+      }
+      if (!b.w || !b.h) return
+      const z = Math.max(0.15, Math.min((sw - 160) / b.w, (sh - 160) / b.h, 1))
+      setZoom(z)
+      setPan({ x: (sw - b.w * z) / 2 - b.minX * z, y: (sh - b.h * z) / 2 - b.minY * z })
+    },
+    [setZoom],
+  )
 
   useLayoutEffect(() => {
-    fit()
+    doFit(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screens.length])
 
   useLayoutEffect(() => {
-    window.addEventListener('pm-fit', fit)
-    return () => window.removeEventListener('pm-fit', fit)
-  }, [fit])
+    const h = () => doFit(true)
+    window.addEventListener('pm-fit', h)
+    return () => window.removeEventListener('pm-fit', h)
+  }, [doFit])
 
-  const onWheel = (e: React.WheelEvent) => {
-    e.preventDefault()
+  const panRef = useRef(pan)
+  useEffect(() => {
+    panRef.current = pan
+  }, [pan])
+
+  // Zoom con rueda: listener nativo no-pasivo (para poder preventDefault sin warnings).
+  useEffect(() => {
     const stage = stageRef.current
     if (!stage) return
-    const rect = stage.getBoundingClientRect()
-    const mx = e.clientX - rect.left
-    const my = e.clientY - rect.top
-    const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1
-    const nz = Math.min(2, Math.max(0.15, zoom * factor))
-    const cx = (mx - pan.x) / zoom
-    const cy = (my - pan.y) / zoom
-    setPan({ x: mx - cx * nz, y: my - cy * nz })
-    setZoom(nz)
-  }
+    const handler = (e: WheelEvent) => {
+      const t = e.target as HTMLElement
+      if (t.closest('.cable-panel,.acc-switch,.ctx-tools,.dock,.zoombadge')) return
+      e.preventDefault()
+      const rect = stage.getBoundingClientRect()
+      const mx = e.clientX - rect.left
+      const my = e.clientY - rect.top
+      const cur = useStore.getState().zoom
+      const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1
+      const nz = Math.min(2, Math.max(0.15, cur * factor))
+      const cx = (mx - panRef.current.x) / cur
+      const cy = (my - panRef.current.y) / cur
+      setPan({ x: mx - cx * nz, y: my - cy * nz })
+      setZoom(nz)
+    }
+    stage.addEventListener('wheel', handler, { passive: false })
+    return () => stage.removeEventListener('wheel', handler)
+  }, [setZoom])
 
   const onPointerDown = (e: React.PointerEvent) => {
     const el = e.target as HTMLElement
@@ -151,7 +176,6 @@ export function Stage() {
     <main
       ref={stageRef}
       className={`stage ${panning ? 'panning' : ''} ${tool === 'brush' || tool === 'cable' ? 'brush' : ''}`}
-      onWheel={onWheel}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
