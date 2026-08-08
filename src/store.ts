@@ -3,12 +3,15 @@ import type { AccentKey, Screen } from './types'
 import { accentByKey } from './data/accents'
 import { presetById } from './data/modulePresets'
 import { senderById } from './data/senders'
-import { autoWire, modulesPerOutput, resolveWire } from './lib/cabling'
+import { autoWire, modulesPerOutput, serpentineOrder } from './lib/cabling'
+import { screenSizePx, stackIfOverlapping } from './lib/layout'
 
-export type Tool = 'hand' | 'brush' | 'cable'
+export type Tool = 'hand' | 'move' | 'brush' | 'cable'
 
 let idSeq = 1
 const newId = () => `s${idSeq++}`
+
+const emptyWire = (n: number): number[][] => Array.from({ length: n }, () => [])
 
 function makeScreen(partial: Partial<Screen> = {}): Screen {
   return {
@@ -70,6 +73,7 @@ interface State {
   setZoom: (z: number) => void
   setTool: (t: Tool) => void
   selectOutput: (i: number) => void
+  startCableStroke: (id: string, index: number) => void
   assignModule: (id: string, index: number) => void
   autoCable: (id: string) => void
 
@@ -92,7 +96,7 @@ function loadAccent(): AccentKey {
 
 function defaultScreens(): Screen[] {
   return [
-    makeScreen({ name: 'Pantalla arriba', palette: PALETTES[0], off: [85, 86, 87, 102, 103] }),
+    makeScreen({ name: 'Pantalla arriba', palette: PALETTES[0], off: [85, 86, 87, 102, 103], x: 0, y: 0 }),
     makeScreen({
       name: 'CENTRAL',
       presetId: 'P3.9-50x50',
@@ -100,6 +104,8 @@ function defaultScreens(): Screen[] {
       rows: 6,
       palette: PALETTES[1],
       senderId: 'ns-vx600',
+      x: 0,
+      y: 920,
     }),
   ]
 }
@@ -126,7 +132,8 @@ function loadProject(): { projectName: string; screens: Screen[] } {
   return { projectName: '', screens: defaultScreens() }
 }
 
-const boot = loadProject()
+const bootRaw = loadProject()
+const boot = { projectName: bootRaw.projectName, screens: stackIfOverlapping(bootRaw.screens) }
 
 // helper: aplica una mutación sobre screens registrando historial
 type SetFn = (partial: Partial<State> | ((s: State) => Partial<State>)) => void
@@ -157,7 +164,13 @@ export const useStore = create<State>((set, get) => ({
   addScreen: () =>
     set((s) => {
       const palette = PALETTES[s.screens.length % PALETTES.length]
-      const scr = makeScreen({ name: `Pantalla ${s.screens.length + 1}`, palette })
+      const bottom = s.screens.reduce((m, sc) => Math.max(m, sc.y + screenSizePx(sc).h), 0)
+      const scr = makeScreen({
+        name: `Pantalla ${s.screens.length + 1}`,
+        palette,
+        x: 0,
+        y: s.screens.length ? bottom + 120 : 0,
+      })
       return {
         screens: [...s.screens, scr],
         selectedId: scr.id,
@@ -224,8 +237,7 @@ export const useStore = create<State>((set, get) => ({
       }),
     ),
 
-  select: (id) =>
-    set((s) => (s.selectedId === id ? {} : { selectedId: id, activeOutput: null })),
+  select: (id) => set((s) => (s.selectedId === id ? {} : { selectedId: id })),
   openEdit: (id) => set({ editingId: id, selectedId: id }),
   closeEdit: () => set({ editingId: null }),
   setExportOpen: (v) => set({ exportOpen: v }),
@@ -234,6 +246,28 @@ export const useStore = create<State>((set, get) => ({
 
   selectOutput: (i) => set({ activeOutput: i, tool: 'cable' }),
 
+  // Inicia el recorrido de la salida activa: arranca de cero (el auto es solo vista previa).
+  startCableStroke: (id, index) =>
+    set((s) => {
+      const out = s.activeOutput
+      if (out == null) return {}
+      return {
+        screens: s.screens.map((sc) => {
+          if (sc.id !== id) return sc
+          const sender = senderById(sc.senderId)
+          const wire = (sc.wire ?? emptyWire(sender.outputs)).map((a) => [...a])
+          while (wire.length <= out) wire.push([])
+          for (const a of wire) {
+            const k = a.indexOf(index)
+            if (k >= 0) a.splice(k, 1)
+          }
+          wire[out] = [index]
+          return { ...sc, wire }
+        }),
+      }
+    }),
+
+  // Extiende el recorrido de la salida activa hasta su límite (solo agrega, nunca al tope forzado).
   assignModule: (id, index) =>
     set((s) => {
       const out = s.activeOutput
@@ -241,27 +275,46 @@ export const useStore = create<State>((set, get) => ({
       return {
         screens: s.screens.map((sc) => {
           if (sc.id !== id) return sc
-          const preset = presetById(sc.presetId)
           const sender = senderById(sc.senderId)
-          const limit = modulesPerOutput(preset, sender)
-          const wire = resolveWire(sc, preset, sender).map((a) => [...a])
+          const limit = modulesPerOutput(presetById(sc.presetId), sender)
+          const wire = (sc.wire ?? emptyWire(sender.outputs)).map((a) => [...a])
           while (wire.length <= out) wire.push([])
-          const wasIn = wire[out].includes(index)
+          if (wire[out].includes(index) || wire[out].length >= limit) return sc
           for (const a of wire) {
             const k = a.indexOf(index)
             if (k >= 0) a.splice(k, 1)
           }
-          if (!wasIn && wire[out].length < limit) wire[out].push(index)
+          wire[out].push(index)
           return { ...sc, wire }
         }),
       }
     }),
 
+  // Auto-cablear: si no se cableó nada, cablea todo; si hay manual, completa solo las salidas vacías.
   autoCable: (id) =>
     mutate(set, (screens) =>
       screens.map((sc) => {
         if (sc.id !== id) return sc
-        return { ...sc, wire: autoWire(sc, presetById(sc.presetId), senderById(sc.senderId)) }
+        const preset = presetById(sc.presetId)
+        const sender = senderById(sc.senderId)
+        const limit = modulesPerOutput(preset, sender)
+        const manual = sc.wire
+        if (!manual || manual.every((a) => a.length === 0)) {
+          return { ...sc, wire: autoWire(sc, preset, sender) }
+        }
+        const wire = manual.map((a) => [...a])
+        while (wire.length < sender.outputs) wire.push([])
+        const assigned = new Set(wire.flat())
+        const order = serpentineOrder(sc.cols, sc.rows).map((c) => c.index)
+        const remaining = order.filter((idx) => !assigned.has(idx))
+        let oi = 0
+        for (const idx of remaining) {
+          // saltear salidas que el usuario ya tocó (no vacías en el manual) o ya llenas
+          while (oi < sender.outputs && ((manual[oi]?.length ?? 0) > 0 || wire[oi].length >= limit)) oi++
+          if (oi >= sender.outputs) break
+          wire[oi].push(idx)
+        }
+        return { ...sc, wire }
       }),
     ),
 

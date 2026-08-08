@@ -60,8 +60,8 @@ export function CablePanel() {
       <button className="cp-btn" onClick={() => autoCable(screen.id)}>Auto-cablear</button>
       <div className="cp-hint">
         {tool === 'cable'
-          ? 'Modo cable activo. Tocá o arrastrá sobre los módulos para asignarlos a la salida elegida (hasta su límite).'
-          : 'Tocá una salida para empezar a cablearla, o usá Auto-cablear.'}
+          ? 'Modo cable: tocá el módulo de entrada y arrastrá hasta donde quieras soltar (o hasta el límite de la salida). Podés cablear menos que el tope.'
+          : 'Tocá una salida para cablearla a mano, o usá Auto-cablear (respeta lo que ya cableaste).'}
       </div>
     </aside>
   )

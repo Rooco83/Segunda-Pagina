@@ -1,9 +1,11 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
+import { contentBounds } from '../lib/layout'
 import { ScreenView } from './ScreenView'
 import { CablePanel } from './CablePanel'
 
-const IGNORE = '.mod,.drag,button,.cable-panel,.acc-switch,.ctx-tools,.dock,.zoombadge,.modal,.stbtn,.tool'
+// Elementos de UI sobre los que NO se panea ni pinta.
+const CHROME = '.cable-panel,.acc-switch,.ctx-tools,.dock,.zoombadge,.modal,.drag,button,.stbtn,.tool'
 
 export function Stage() {
   const screens = useStore((s) => s.screens)
@@ -13,28 +15,27 @@ export function Stage() {
   const tool = useStore((s) => s.tool)
   const setModuleOff = useStore((s) => s.setModuleOff)
   const assignModule = useStore((s) => s.assignModule)
+  const startCableStroke = useStore((s) => s.startCableStroke)
+  const updateScreen = useStore((s) => s.updateScreen)
   const snapshot = useStore((s) => s.snapshot)
 
   const stageRef = useRef<HTMLDivElement>(null)
-  const contentRef = useRef<HTMLDivElement>(null)
   const [pan, setPan] = useState({ x: 80, y: 40 })
   const [panning, setPanning] = useState(false)
   const drag = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null)
   const paint = useRef<{ mode: 'brush' | 'cable'; target: boolean; done: Set<string> } | null>(null)
+  const moveRef = useRef<{ id: string; sx: number; sy: number; ox: number; oy: number } | null>(null)
 
   const fit = useCallback(() => {
     const stage = stageRef.current
-    const content = contentRef.current
-    if (!stage || !content) return
+    if (!stage) return
     const sw = stage.clientWidth
     const sh = stage.clientHeight
-    const cw = content.offsetWidth
-    const ch = content.offsetHeight
-    if (!cw || !ch) return
-    const z = Math.min((sw - 120) / cw, (sh - 120) / ch, 1)
-    const nz = Math.max(0.15, z)
-    setZoom(nz)
-    setPan({ x: (sw - cw * nz) / 2, y: (sh - ch * nz) / 2 })
+    const b = contentBounds(useStore.getState().screens)
+    if (!b.w || !b.h) return
+    const z = Math.max(0.15, Math.min((sw - 160) / b.w, (sh - 160) / b.h, 1))
+    setZoom(z)
+    setPan({ x: (sw - b.w * z) / 2 - b.minX * z, y: (sh - b.h * z) / 2 - b.minY * z })
   }, [setZoom])
 
   useLayoutEffect(() => {
@@ -63,69 +64,90 @@ export function Stage() {
   }
 
   const onPointerDown = (e: React.PointerEvent) => {
-    const mod = (e.target as HTMLElement).closest('.mod') as HTMLElement | null
+    const el = e.target as HTMLElement
+    const mod = el.closest('.mod') as HTMLElement | null
+
+    // Pincel / Cable: actuar sobre módulos
     if ((tool === 'brush' || tool === 'cable') && mod) {
       const sid = mod.dataset.sid!
       const idx = Number(mod.dataset.idx)
       const target = !mod.classList.contains('off')
       snapshot()
       if (tool === 'brush') setModuleOff(sid, idx, target)
-      else assignModule(sid, idx)
-      paint.current = { mode: tool, target, done: new Set([`${sid}:${idx}`]) }
+      else startCableStroke(sid, idx)
+      paint.current = { mode: tool === 'brush' ? 'brush' : 'cable', target, done: new Set([`${sid}:${idx}`]) }
       stageRef.current?.setPointerCapture(e.pointerId)
       return
     }
-    if ((e.target as HTMLElement).closest(IGNORE)) return
-    select(null)
+
+    // Mover pantalla completa
+    if (tool === 'move') {
+      const screenEl = el.closest('.screen') as HTMLElement | null
+      if (screenEl) {
+        const id = screenEl.dataset.screen!
+        const sc = useStore.getState().screens.find((s) => s.id === id)
+        if (sc) {
+          snapshot()
+          select(id)
+          moveRef.current = { id, sx: e.clientX, sy: e.clientY, ox: sc.x, oy: sc.y }
+          stageRef.current?.setPointerCapture(e.pointerId)
+          return
+        }
+      }
+    }
+
+    if (el.closest(CHROME)) return
+
+    // Pan (mano, o área vacía en cualquier herramienta)
+    if (!el.closest('.screen')) select(null)
     drag.current = { sx: e.clientX, sy: e.clientY, ox: pan.x, oy: pan.y }
     setPanning(true)
     stageRef.current?.setPointerCapture(e.pointerId)
   }
+
   const onPointerMove = (e: React.PointerEvent) => {
     if (paint.current) {
-      const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null
-      const mod = el?.closest('.mod') as HTMLElement | null
+      const target = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null
+      const mod = target?.closest('.mod') as HTMLElement | null
       if (mod) {
         const key = `${mod.dataset.sid}:${mod.dataset.idx}`
         if (!paint.current.done.has(key)) {
           paint.current.done.add(key)
-          if (paint.current.mode === 'brush') {
-            setModuleOff(mod.dataset.sid!, Number(mod.dataset.idx), paint.current.target)
-          } else {
-            assignModule(mod.dataset.sid!, Number(mod.dataset.idx))
-          }
+          if (paint.current.mode === 'brush') setModuleOff(mod.dataset.sid!, Number(mod.dataset.idx), paint.current.target)
+          else assignModule(mod.dataset.sid!, Number(mod.dataset.idx))
         }
       }
       return
     }
-    if (!drag.current) return
-    setPan({ x: drag.current.ox + (e.clientX - drag.current.sx), y: drag.current.oy + (e.clientY - drag.current.sy) })
+    if (moveRef.current) {
+      const m = moveRef.current
+      updateScreen(m.id, { x: m.ox + (e.clientX - m.sx) / zoom, y: m.oy + (e.clientY - m.sy) / zoom })
+      return
+    }
+    if (drag.current) {
+      setPan({ x: drag.current.ox + (e.clientX - drag.current.sx), y: drag.current.oy + (e.clientY - drag.current.sy) })
+    }
   }
+
   const onPointerUp = () => {
     drag.current = null
     paint.current = null
+    moveRef.current = null
     setPanning(false)
   }
 
   return (
     <main
       ref={stageRef}
-      className={`stage ${panning ? 'panning' : ''} ${tool !== 'hand' ? 'brush' : ''}`}
+      className={`stage ${panning ? 'panning' : ''} ${tool === 'brush' || tool === 'cable' ? 'brush' : ''} ${tool === 'move' ? 'move' : ''}`}
       onWheel={onWheel}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
     >
       <div
-        ref={contentRef}
         className="canvas-root"
-        style={{
-          transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 60,
-        }}
+        style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
       >
         {screens.map((s) => (
           <ScreenView key={s.id} screen={s} />

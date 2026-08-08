@@ -5,10 +5,9 @@ import { presetById } from '../data/modulePresets'
 import { senderById } from '../data/senders'
 import { screenMetrics } from '../lib/metrics'
 import { OUTPUT_COLORS, resolveWire, serpentineOrder } from '../lib/cabling'
+import { CM_PX } from '../lib/layout'
 import { Draggable } from './Draggable'
 import { IconGear, IconPalette, IconTrash } from './icons'
-
-const CM_PX = 1 // px por cm a zoom 1
 
 export function ScreenView({ screen }: { screen: Screen }) {
   const selected = useStore((s) => s.selectedId === screen.id)
@@ -16,9 +15,7 @@ export function ScreenView({ screen }: { screen: Screen }) {
   const openEdit = useStore((s) => s.openEdit)
   const cycleColor = useStore((s) => s.cycleColor)
   const deleteScreen = useStore((s) => s.deleteScreen)
-  const toggleModule = useStore((s) => s.toggleModule)
   const updateScreen = useStore((s) => s.updateScreen)
-  const tool = useStore((s) => s.tool)
 
   const preset = presetById(screen.presetId)
   const sender = senderById(screen.senderId)
@@ -77,10 +74,6 @@ export function ScreenView({ screen }: { screen: Screen }) {
           background: shade,
           boxShadow: col ? `inset 0 4px 0 ${col}, inset 0 0 0 0.5px rgba(0,0,0,0.22)` : undefined,
         }}
-        onClick={(e) => {
-          e.stopPropagation()
-          if (tool === 'hand') toggleModule(screen.id, i)
-        }}
       >
         {orderMap[i]}
       </div>,
@@ -90,6 +83,8 @@ export function ScreenView({ screen }: { screen: Screen }) {
   return (
     <div
       className={`screen ${selected ? 'selected' : ''}`}
+      data-screen={screen.id}
+      style={{ position: 'absolute', left: screen.x, top: screen.y }}
       onPointerDown={() => select(screen.id)}
     >
       <div className="corner tl">

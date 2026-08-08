@@ -1,5 +1,5 @@
 import { useStore } from '../store'
-import { IconBrush, IconCable, IconFit, IconHand, IconZoomOut } from './icons'
+import { IconBrush, IconCable, IconFit, IconHand, IconMove, IconZoomOut } from './icons'
 
 export function ToolDock() {
   const zoom = useStore((s) => s.zoom)
@@ -12,10 +12,17 @@ export function ToolDock() {
       <div className="group">
         <button
           className={`dockbtn ${tool === 'hand' ? 'active' : ''}`}
-          title="Mover (pan)"
+          title="Mano: mover el lienzo (pan)"
           onClick={() => setTool('hand')}
         >
           <IconHand />
+        </button>
+        <button
+          className={`dockbtn ${tool === 'move' ? 'active' : ''}`}
+          title="Mover pantallas completas"
+          onClick={() => setTool('move')}
+        >
+          <IconMove />
         </button>
         <button
           className={`dockbtn ${tool === 'brush' ? 'active' : ''}`}
