@@ -12,29 +12,35 @@ export function ToolDock() {
       <div className="group">
         <button
           className={`dockbtn ${tool === 'hand' ? 'active' : ''}`}
-          title="Mano: agarrá una pantalla para moverla (con imantado), o el vacío para panear"
+          data-tip="Mano — mové el lienzo, o agarrá una pantalla para reubicarla (se imanta a las otras)."
           onClick={() => setTool('hand')}
         >
           <IconHand />
         </button>
         <button
           className={`dockbtn ${tool === 'brush' ? 'active' : ''}`}
-          title="Pincel: pintá módulos para apagarlos/encenderlos"
+          data-tip="Pincel — prendé o apagá módulos (clic, o arrastrando para pintar varios)."
           onClick={() => setTool('brush')}
         >
           <IconBrush />
         </button>
         <button
           className={`dockbtn ${tool === 'cable' ? 'active' : ''}`}
-          title="Cablear: asigná módulos a la salida activa"
+          data-tip="Cable — elegí una salida en el panel y tocá/arrastrá los módulos para cablearla."
           onClick={() => setTool('cable')}
         >
           <IconCable />
         </button>
       </div>
       <div className="group">
-        <button className="dockbtn" title="Alejar" onClick={() => setZoom(zoom / 1.15)}><IconZoomOut /></button>
-        <button className="dockbtn" title="Ajustar" onClick={() => window.dispatchEvent(new Event('pm-fit'))}><IconFit /></button>
+        <button className="dockbtn" data-tip="Alejar el zoom." onClick={() => setZoom(zoom / 1.15)}><IconZoomOut /></button>
+        <button
+          className="dockbtn"
+          data-tip="Ajustar — centra la pantalla seleccionada, o toda la composición si no hay ninguna."
+          onClick={() => window.dispatchEvent(new Event('pm-fit'))}
+        >
+          <IconFit />
+        </button>
       </div>
     </div>
   )

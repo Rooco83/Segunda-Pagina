@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { PALETTES, useStore } from '../store'
 import { MODULE_PRESETS, presetById } from '../data/modulePresets'
 import { SENDERS, senderById } from '../data/senders'
@@ -16,6 +16,21 @@ export function EditScreenModal() {
   const deleteScreen = useStore((s) => s.deleteScreen)
   const closeEdit = useStore((s) => s.closeEdit)
   const [unit, setUnit] = useState<Unit>('mod')
+  const [pos, setPos] = useState({ x: 0, y: 0 })
+  const drag = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null)
+
+  const headDown = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest('.xbtn, input, button, .dd')) return
+    drag.current = { sx: e.clientX, sy: e.clientY, ox: pos.x, oy: pos.y }
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+  }
+  const headMove = (e: React.PointerEvent) => {
+    if (!drag.current) return
+    setPos({ x: drag.current.ox + (e.clientX - drag.current.sx), y: drag.current.oy + (e.clientY - drag.current.sy) })
+  }
+  const headUp = () => {
+    drag.current = null
+  }
 
   if (!screen) return null
   const preset = presetById(screen.presetId)
@@ -38,9 +53,9 @@ export function EditScreenModal() {
 
 
   return (
-    <div className="backdrop" onPointerDown={(e) => e.target === e.currentTarget && closeEdit()}>
-      <div className="modal m-edit">
-        <div className="modal-head">
+    <div className="backdrop edit-float">
+      <div className="modal m-edit" style={{ transform: `translate(${pos.x}px, ${pos.y}px)` }}>
+        <div className="modal-head draggable" onPointerDown={headDown} onPointerMove={headMove} onPointerUp={headUp}>
           <h2>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M4 6h10M4 12h16M4 18h7" />

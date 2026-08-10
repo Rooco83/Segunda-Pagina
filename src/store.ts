@@ -301,6 +301,7 @@ export const useStore = create<State>((set, get) => ({
   selectOutput: (i) => set({ activeOutput: i, tool: 'cable' }),
 
   // Inicia el recorrido de la salida activa (la marca como manual/bloqueada).
+  // No roba módulos de otra salida: si ya está cableado en otra, no hace nada.
   startCableStroke: (id, index) =>
     set((s) => {
       const out = s.activeOutput
@@ -313,10 +314,9 @@ export const useStore = create<State>((set, get) => ({
           const locked = (sc.wireLocked ?? []).slice()
           while (wire.length <= out) wire.push([])
           while (locked.length <= out) locked.push(false)
-          for (const a of wire) {
-            const k = a.indexOf(index)
-            if (k >= 0) a.splice(k, 1)
-          }
+          // ¿ya cableado en OTRA salida? → no pisar
+          const occupied = wire.some((a, o) => o !== out && a.includes(index))
+          if (occupied) return sc
           wire[out] = [index]
           locked[out] = true
           return { ...sc, wire, wireLocked: locked }
@@ -324,7 +324,7 @@ export const useStore = create<State>((set, get) => ({
       }
     }),
 
-  // Extiende el recorrido de la salida activa hasta su límite (solo agrega).
+  // Extiende el recorrido de la salida activa hasta su límite (solo agrega módulos libres).
   assignModule: (id, index) =>
     set((s) => {
       const out = s.activeOutput
@@ -338,11 +338,8 @@ export const useStore = create<State>((set, get) => ({
           const locked = (sc.wireLocked ?? []).slice()
           while (wire.length <= out) wire.push([])
           while (locked.length <= out) locked.push(false)
-          if (wire[out].includes(index) || wire[out].length >= limit) return sc
-          for (const a of wire) {
-            const k = a.indexOf(index)
-            if (k >= 0) a.splice(k, 1)
-          }
+          const occupied = wire.some((a, o) => o !== out && a.includes(index))
+          if (occupied || wire[out].includes(index) || wire[out].length >= limit) return sc
           wire[out].push(index)
           locked[out] = true
           return { ...sc, wire, wireLocked: locked }

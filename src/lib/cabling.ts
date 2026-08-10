@@ -6,12 +6,6 @@ export const OUTPUT_COLORS = [
   '#3B82F6', '#8B5CF6', '#EC4899', '#14B8A6',
 ]
 
-export interface Cell {
-  r: number
-  c: number
-  index: number
-}
-
 /** Numeración de módulos ENCENDIDOS: columnas arriba→abajo, izquierda→derecha. */
 export function moduleNumbers(cols: number, rows: number, off: number[]): Map<number, number> {
   const offSet = new Set(off)
@@ -33,10 +27,12 @@ export function modulesPerOutput(preset: ModulePreset, sender: Sender): number {
 }
 
 const rc = (index: number, cols: number) => ({ r: Math.floor(index / cols), c: index % cols })
-const adjacent = (a: number, b: number, cols: number) => {
-  const pa = rc(a, cols)
-  const pb = rc(b, cols)
-  return Math.abs(pa.r - pb.r) + Math.abs(pa.c - pb.c) === 1
+
+function range(from: number, to: number, step: number): number[] {
+  const out: number[] = []
+  if (step > 0) for (let i = from; i <= to; i += step) out.push(i)
+  else for (let i = from; i >= to; i += step) out.push(i)
+  return out
 }
 
 /** Componentes conexas (adyacencia ortogonal) de un conjunto de módulos. */
@@ -70,8 +66,35 @@ function regions(available: Set<number>, cols: number, rows: number): number[][]
   return out
 }
 
-/** Serpentina de una región según su forma: ancha→horizontal, alta→vertical. */
-function regionSerpentine(region: number[], cols: number): number[] {
+interface Corner {
+  top: boolean
+  left: boolean
+}
+
+/** Primer recorrido cableado a mano (para imitar su dirección). */
+function firstLockedRun(screen: Screen, sender: Sender): number[] | null {
+  const locked = screen.wireLocked ?? []
+  const wire = screen.wire ?? []
+  for (let o = 0; o < sender.outputs; o++) {
+    if (locked[o] && wire[o]?.length) return wire[o]
+  }
+  return null
+}
+
+/** Rincón de inicio (arriba/abajo · izq/der) según el primer cable manual. */
+function startCorner(run: number[] | null, cols: number): Corner {
+  if (!run || run.length < 2) return { top: true, left: true }
+  const a = rc(run[0], cols)
+  const b = rc(run[run.length - 1], cols)
+  return { top: a.r <= b.r, left: a.c <= b.c }
+}
+
+/**
+ * Ordena una región en LÍNEAS perpendiculares a su eje largo (serpentina),
+ * arrancando en el rincón indicado. Región ancha → líneas = columnas (recorre
+ * izq↔der); región alta → líneas = filas (recorre arriba↔abajo).
+ */
+function regionLines(region: number[], cols: number, corner: Corner): number[][] {
   const set = new Set(region)
   let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity
   for (const idx of region) {
@@ -81,47 +104,56 @@ function regionSerpentine(region: number[], cols: number): number[] {
   }
   const w = maxC - minC + 1
   const h = maxR - minR + 1
-  const order: number[] = []
+  const lines: number[][] = []
   if (w >= h) {
-    // horizontal: fila por fila (izq→der / der→izq alternando)
-    for (let r = minR; r <= maxR; r++) {
-      const cs = (r - minR) % 2 === 0
-        ? range(minC, maxC, 1)
-        : range(maxC, minC, -1)
-      for (const c of cs) {
-        const idx = r * cols + c
-        if (set.has(idx)) order.push(idx)
-      }
-    }
+    // líneas = columnas; progresión horizontal según corner.left
+    const colSeq = corner.left ? range(minC, maxC, 1) : range(maxC, minC, -1)
+    colSeq.forEach((c, li) => {
+      const goingDown = li % 2 === 0 ? corner.top : !corner.top
+      const rowSeq = goingDown ? range(minR, maxR, 1) : range(maxR, minR, -1)
+      const line = rowSeq.map((r) => r * cols + c).filter((i) => set.has(i))
+      if (line.length) lines.push(line)
+    })
   } else {
-    // vertical: columna por columna (arriba→abajo / abajo→arriba alternando)
-    for (let c = minC; c <= maxC; c++) {
-      const rs = (c - minC) % 2 === 0
-        ? range(minR, maxR, 1)
-        : range(maxR, minR, -1)
-      for (const r of rs) {
-        const idx = r * cols + c
-        if (set.has(idx)) order.push(idx)
-      }
-    }
+    // líneas = filas; progresión vertical según corner.top
+    const rowSeq = corner.top ? range(minR, maxR, 1) : range(maxR, minR, -1)
+    rowSeq.forEach((r, li) => {
+      const goingRight = li % 2 === 0 ? corner.left : !corner.left
+      const colSeq = goingRight ? range(minC, maxC, 1) : range(maxC, minC, -1)
+      const line = colSeq.map((c) => r * cols + c).filter((i) => set.has(i))
+      if (line.length) lines.push(line)
+    })
   }
-  return order
+  return lines
 }
 
-function range(from: number, to: number, step: number): number[] {
-  const out: number[] = []
-  if (step > 0) for (let i = from; i <= to; i += step) out.push(i)
-  else for (let i = from; i >= to; i += step) out.push(i)
-  return out
+/**
+ * Divide las líneas en tiradas de salida por LÍNEAS COMPLETAS: agrega líneas
+ * enteras mientras entren en el límite; si la próxima línea no entra, abre una
+ * salida nueva (no parte una línea para llenar al tope → inputs cómodos al borde).
+ */
+function splitLines(lines: number[][], limit: number): number[][] {
+  const runs: number[][] = []
+  let cur: number[] = []
+  for (const line of lines) {
+    if (line.length > limit) {
+      if (cur.length) { runs.push(cur); cur = [] }
+      for (let i = 0; i < line.length; i += limit) runs.push(line.slice(i, i + limit))
+      continue
+    }
+    if (cur.length && cur.length + line.length > limit) { runs.push(cur); cur = [] }
+    cur.push(...line)
+  }
+  if (cur.length) runs.push(cur)
+  return runs
 }
 
 /**
  * Motor de cableado.
- *  - Respeta las salidas bloqueadas (manuales): las mantiene, solo saca apagados.
- *  - Si fillUnlocked, cablea las zonas automáticas: divide en regiones conexas de
- *    módulos encendidos, cada región con la dirección que le conviene por su forma
- *    (ancha→izq-der, alta→arriba-abajo), en tiradas del largo de la 1ª manual (o el
- *    máximo por salida). Nunca cruza huecos.
+ *  - Respeta las salidas manuales (bloqueadas): las mantiene, solo saca apagados.
+ *  - Si fillUnlocked, cablea las zonas automáticas: por regiones conexas de módulos
+ *    encendidos, imitando el rincón/dirección del primer cable manual, en tiradas de
+ *    LÍNEAS COMPLETAS (comodidad de cableado). Nunca cruza huecos.
  */
 export function flowCable(
   screen: Screen,
@@ -152,7 +184,6 @@ export function flowCable(
     return res
   }
 
-  // salidas manuales: se mantienen, saneadas
   for (let o = 0; o < sender.outputs; o++) {
     if (locked[o]) out[o] = sanitize(wireIn[o] ?? [])
   }
@@ -164,32 +195,16 @@ export function flowCable(
     return out
   }
 
-  // tamaño de tirada: largo de la 1ª salida manual, o el máximo por salida
-  let firstLocked = 0
-  for (let o = 0; o < sender.outputs; o++) {
-    if (locked[o] && out[o].length) { firstLocked = out[o].length; break }
-  }
-  const chunk = Math.max(1, Math.min(limit, firstLocked || limit))
+  const corner = startCorner(firstLockedRun(screen, sender), cols)
 
-  // módulos encendidos aún sin cablear → regiones conexas
   const available = new Set<number>()
   for (let i = 0; i < total; i++) if (isOn(i) && !used.has(i)) available.add(i)
 
   const runs: number[][] = []
   for (const region of regions(available, cols, rows)) {
-    const ordered = regionSerpentine(region, cols)
-    let cur: number[] = []
-    for (const idx of ordered) {
-      if (cur.length > 0 && (cur.length >= chunk || !adjacent(cur[cur.length - 1], idx, cols))) {
-        runs.push(cur)
-        cur = []
-      }
-      cur.push(idx)
-    }
-    if (cur.length) runs.push(cur)
+    runs.push(...splitLines(regionLines(region, cols, corner), limit))
   }
 
-  // asignar tiradas a las salidas automáticas (en orden)
   let ri = 0
   for (let o = 0; o < sender.outputs; o++) {
     if (locked[o]) continue

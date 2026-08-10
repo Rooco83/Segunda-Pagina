@@ -145,6 +145,15 @@ button { font-family: inherit; }
 .dockbtn:hover { background: var(--panel-2); color: var(--text); }
 .dockbtn.active { background: var(--acc); color: var(--acc-ink); }
 .dockbtn svg { width: 19px; height: 19px; }
+.dockbtn[data-tip] { position: relative; }
+.dockbtn[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 10px); right: 0;
+  background: rgba(14, 20, 18, 0.98); border: 1px solid var(--hair-2); color: var(--text);
+  font-size: 11.5px; line-height: 1.4; padding: 8px 10px; border-radius: 8px;
+  width: 210px; text-align: left; z-index: 40; pointer-events: none;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.55);
+}
 .zoombadge { position: fixed; bottom: 24px; left: 20px; font-family: var(--mono); font-size: 11px; color: var(--muted); background: rgba(14, 20, 18, 0.9); border: 1px solid var(--hair-2); padding: 8px 11px; border-radius: 10px; z-index: 16; }
 
 /* Cable panel */
@@ -175,6 +184,9 @@ button { font-family: inherit; }
 
 /* Modals */
 .backdrop { position: fixed; inset: 0; background: rgba(4, 8, 7, 0.66); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 24px; }
+.backdrop.edit-float { background: transparent; pointer-events: none; align-items: flex-start; padding-top: 80px; }
+.edit-float .modal { pointer-events: auto; box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.9); }
+.modal-head.draggable { cursor: move; user-select: none; }
 .modal { background: var(--panel); border: 1px solid var(--hair-2); border-radius: var(--r-lg); width: 100%; box-shadow: 0 40px 100px -30px rgba(0, 0, 0, 0.85); max-height: 92vh; overflow-y: auto; }
 .modal-head { display: flex; align-items: flex-start; justify-content: space-between; padding: 20px 22px 16px; border-bottom: 1px solid var(--hair); }
 .modal-head h2 { margin: 0; font-size: 19px; display: flex; align-items: center; gap: 10px; }
