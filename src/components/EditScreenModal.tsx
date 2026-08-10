@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useStore } from '../store'
+import { PALETTES, useStore } from '../store'
 import { MODULE_PRESETS, presetById } from '../data/modulePresets'
 import { SENDERS, senderById } from '../data/senders'
 import { modulesPerOutput } from '../lib/cabling'
@@ -12,6 +12,7 @@ type Unit = 'px' | 'm' | 'mod'
 export function EditScreenModal() {
   const screen = useStore((s) => s.screens.find((sc) => sc.id === s.editingId) ?? null)
   const updateScreen = useStore((s) => s.updateScreen)
+  const setPalette = useStore((s) => s.setPalette)
   const deleteScreen = useStore((s) => s.deleteScreen)
   const closeEdit = useStore((s) => s.closeEdit)
   const [unit, setUnit] = useState<Unit>('mod')
@@ -35,12 +36,6 @@ export function EditScreenModal() {
   const hVal = toUnit(screen.rows, preset.hPx, preset.hCm)
   const fmt = (v: number) => (unit === 'm' ? v.toFixed(2) : String(Math.round(v)))
 
-  const dameroBg = {
-    backgroundImage: `linear-gradient(45deg, ${screen.palette[0]} 25%, transparent 0), linear-gradient(-45deg, ${screen.palette[0]} 25%, transparent 0), linear-gradient(45deg, transparent 75%, ${screen.palette[0]} 0), linear-gradient(-45deg, transparent 75%, ${screen.palette[0]} 0)`,
-    backgroundSize: '26px 26px',
-    backgroundPosition: '0 0, 0 13px, 13px -13px, -13px 0',
-    backgroundColor: screen.palette[1],
-  }
 
   return (
     <div className="backdrop" onPointerDown={(e) => e.target === e.currentTarget && closeEdit()}>
@@ -68,8 +63,35 @@ export function EditScreenModal() {
               />
             </div>
             <div className="colorbase">
-              <label className="field-lbl">Color Base</label>
-              <div className="swatch" style={dameroBg} />
+              <label className="field-lbl">Color de la pantalla</label>
+              <div className="palette-row">
+                {PALETTES.map((p) => (
+                  <button
+                    key={p[0]}
+                    className={`pal-swatch ${p[0] === screen.palette[0] ? 'active' : ''}`}
+                    style={{ background: `linear-gradient(135deg, ${p[0]} 50%, ${p[1]} 50%)` }}
+                    title="Elegir color"
+                    onClick={() => setPalette(screen.id, p)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="labels-row">
+            <div>
+              <label className="field-lbl">Tamaño del nombre <b>{Math.round(screen.nameSize ?? 30)}px</b></label>
+              <input
+                type="range" min={12} max={90} value={screen.nameSize ?? 30}
+                onChange={(e) => updateScreen(screen.id, { nameSize: Number(e.target.value) })}
+              />
+            </div>
+            <div>
+              <label className="field-lbl">Tamaño del logo <b>{(screen.logoSize ?? 1).toFixed(1)}×</b></label>
+              <input
+                type="range" min={0.5} max={4} step={0.1} value={screen.logoSize ?? 1}
+                onChange={(e) => updateScreen(screen.id, { logoSize: Number(e.target.value) })}
+              />
             </div>
           </div>
 

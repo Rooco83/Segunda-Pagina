@@ -47,6 +47,12 @@ export interface Screen {
   namePos: { x: number; y: number }
   /** posición del logo dentro de la pantalla (px relativos) */
   logoPos: { x: number; y: number }
+  /** posición del cartel de resolución dentro de la pantalla */
+  resPos?: { x: number; y: number }
+  /** tamaño de la fuente del nombre (px) */
+  nameSize?: number
+  /** escala del logo (1 = base) */
+  logoSize?: number
   /** cableado: por cada salida, lista ordenada de índices de módulo */
   wire?: number[][]
   /** qué salidas fueron cableadas a mano (no las toca el auto) */
@@ -55,8 +61,19 @@ export interface Screen {
   autoCabled?: boolean
 }
 
+/** Marcador de referencia en el lienzo (rectángulo sólido, en px). NO se exporta. */
+export interface Marker {
+  id: string
+  x: number
+  y: number
+  w: number
+  h: number
+  color: string
+}
+
 export interface Project {
   name: string
   screens: Screen[]
+  markers: Marker[]
   selectedId: string | null
 }

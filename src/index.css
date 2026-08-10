@@ -164,6 +164,15 @@ button { font-family: inherit; }
 .cp-count { font-family: var(--mono); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .cp-hint { font-size: 10.5px; color: var(--muted-2); line-height: 1.5; margin-top: 12px; border-top: 1px solid var(--hair); padding-top: 10px; }
 
+/* Reference marker */
+.marker { position: absolute; border: 2px solid; border-radius: 4px; z-index: 0; }
+.marker-dim { position: absolute; top: 6px; left: 8px; font-family: var(--mono); font-size: 11px; color: #fff; background: rgba(0, 0, 0, 0.45); padding: 2px 6px; border-radius: 5px; }
+.marker-tools { position: absolute; top: 6px; right: 8px; display: none; gap: 6px; align-items: center; background: rgba(10, 15, 14, 0.94); border: 1px solid var(--hair-2); border-radius: 9px; padding: 5px 7px; }
+.marker:hover .marker-tools { display: flex; }
+.mk-in { width: 66px; background: var(--panel-2); border: 1px solid var(--hair-2); color: var(--text); border-radius: 6px; padding: 5px 7px; font-family: var(--mono); font-size: 12px; }
+.marker-tools span { color: var(--muted); }
+.marker-resize { position: absolute; right: -7px; bottom: -7px; width: 15px; height: 15px; border-radius: 4px; background: var(--acc); border: 2px solid var(--bg); cursor: nwse-resize; }
+
 /* Modals */
 .backdrop { position: fixed; inset: 0; background: rgba(4, 8, 7, 0.66); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 24px; }
 .modal { background: var(--panel); border: 1px solid var(--hair-2); border-radius: var(--r-lg); width: 100%; box-shadow: 0 40px 100px -30px rgba(0, 0, 0, 0.85); max-height: 92vh; overflow-y: auto; }
@@ -186,6 +195,12 @@ button { font-family: inherit; }
 .edit-top .name { flex: 1; }
 .colorbase .field-lbl { text-align: right; }
 .swatch { width: 120px; height: 52px; border-radius: 10px; border: 1px solid var(--hair-2); }
+.palette-row { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; max-width: 220px; }
+.pal-swatch { width: 26px; height: 26px; border-radius: 7px; border: 2px solid transparent; cursor: pointer; padding: 0; }
+.pal-swatch:hover { transform: scale(1.1); }
+.pal-swatch.active { border-color: #fff; }
+.labels-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+.labels-row input[type="range"] { width: 100%; accent-color: var(--acc); cursor: pointer; }
 .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 22px; }
 .card { background: var(--panel-3); border: 1px solid var(--hair); border-radius: var(--r-md); padding: 18px; }
 .card h3 { margin: 0 0 16px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--acc); text-align: center; font-weight: 700; }

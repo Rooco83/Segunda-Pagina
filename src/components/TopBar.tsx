@@ -10,9 +10,16 @@ export function TopBar() {
   const projectName = useStore((s) => s.projectName)
   const setProjectName = useStore((s) => s.setProjectName)
   const screens = useStore((s) => s.screens)
+  const selectedId = useStore((s) => s.selectedId)
   const setExportOpen = useStore((s) => s.setExportOpen)
 
   const m = projectMetrics(screens)
+  const selected = screens.find((s) => s.id === selectedId)
+  const onModules = (sc: { cols: number; rows: number; off: number[] }) =>
+    sc.cols * sc.rows - sc.off.length
+  const moduleCount = selected
+    ? onModules(selected)
+    : screens.reduce((n, sc) => n + onModules(sc), 0)
 
   return (
     <header className="topbar">
@@ -47,6 +54,12 @@ export function TopBar() {
           <span className="lbl">Consumo · blanco 100%</span>
           <span className="val">{Math.round(m.amps)} A</span>
           <span className="hint">2,4 A/m²</span>
+        </div>
+        <div className="vdiv" />
+        <div className="stat area">
+          <span className="lbl">Módulos</span>
+          <span className="val">{moduleCount}</span>
+          <span className="hint">{selected ? selected.name : 'todas las pantallas'}</span>
         </div>
       </div>
 

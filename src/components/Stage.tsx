@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useStore } from '../store'
 import { contentBounds, screenSizePx, snapPosition } from '../lib/layout'
 import { ScreenView } from './ScreenView'
+import { MarkerView } from './MarkerView'
 import { CablePanel } from './CablePanel'
 
 // Elementos de UI sobre los que NO se panea ni pinta.
@@ -9,6 +10,7 @@ const CHROME = '.cable-panel,.acc-switch,.ctx-tools,.dock,.zoombadge,.modal,.dra
 
 export function Stage() {
   const screens = useStore((s) => s.screens)
+  const markers = useStore((s) => s.markers)
   const zoom = useStore((s) => s.zoom)
   const setZoom = useStore((s) => s.setZoom)
   const select = useStore((s) => s.select)
@@ -17,6 +19,7 @@ export function Stage() {
   const assignModule = useStore((s) => s.assignModule)
   const startCableStroke = useStore((s) => s.startCableStroke)
   const updateScreen = useStore((s) => s.updateScreen)
+  const updateMarker = useStore((s) => s.updateMarker)
   const snapshot = useStore((s) => s.snapshot)
 
   const stageRef = useRef<HTMLDivElement>(null)
@@ -24,7 +27,7 @@ export function Stage() {
   const [panning, setPanning] = useState(false)
   const drag = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null)
   const paint = useRef<{ mode: 'brush' | 'cable'; target: boolean; done: Set<string> } | null>(null)
-  const moveRef = useRef<{ id: string; sx: number; sy: number; ox: number; oy: number } | null>(null)
+  const moveRef = useRef<{ id: string; kind: 'screen' | 'marker'; sx: number; sy: number; ox: number; oy: number } | null>(null)
 
   const doFit = useCallback(
     (useSelection: boolean) => {
@@ -90,6 +93,8 @@ export function Stage() {
 
   const onPointerDown = (e: React.PointerEvent) => {
     const el = e.target as HTMLElement
+    // Controles interactivos (engranaje, tools, inputs): dejarlos actuar, no panear/mover.
+    if (el.closest('.stbtn, .screen-tools, .marker-tools, .marker-resize, button, input, select, .dd')) return
     const mod = el.closest('.mod') as HTMLElement | null
 
     // Pincel / Cable: actuar sobre módulos
@@ -105,7 +110,7 @@ export function Stage() {
       return
     }
 
-    // Mano sobre una pantalla: moverla (con imantado)
+    // Mano sobre una pantalla o marcador: moverlo (pantalla con imantado)
     if (tool === 'hand') {
       const screenEl = el.closest('.screen') as HTMLElement | null
       if (screenEl) {
@@ -114,7 +119,17 @@ export function Stage() {
         if (sc) {
           snapshot()
           select(id)
-          moveRef.current = { id, sx: e.clientX, sy: e.clientY, ox: sc.x, oy: sc.y }
+          moveRef.current = { id, kind: 'screen', sx: e.clientX, sy: e.clientY, ox: sc.x, oy: sc.y }
+          stageRef.current?.setPointerCapture(e.pointerId)
+          return
+        }
+      }
+      const markerEl = el.closest('.marker') as HTMLElement | null
+      if (markerEl) {
+        const id = markerEl.dataset.marker!
+        const mk = useStore.getState().markers.find((m) => m.id === id)
+        if (mk) {
+          moveRef.current = { id, kind: 'marker', sx: e.clientX, sy: e.clientY, ox: mk.x, oy: mk.y }
           stageRef.current?.setPointerCapture(e.pointerId)
           return
         }
@@ -148,6 +163,10 @@ export function Stage() {
       const m = moveRef.current
       const rawX = m.ox + (e.clientX - m.sx) / zoom
       const rawY = m.oy + (e.clientY - m.sy) / zoom
+      if (m.kind === 'marker') {
+        updateMarker(m.id, { x: rawX, y: rawY })
+        return
+      }
       const all = useStore.getState().screens
       const me = all.find((s) => s.id === m.id)
       if (me) {
@@ -184,6 +203,9 @@ export function Stage() {
         className="canvas-root"
         style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}
       >
+        {markers.map((mk) => (
+          <MarkerView key={mk.id} marker={mk} />
+        ))}
         {screens.map((s) => (
           <ScreenView key={s.id} screen={s} />
         ))}

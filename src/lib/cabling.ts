@@ -9,24 +9,21 @@ export const OUTPUT_COLORS = [
 export interface Cell {
   r: number
   c: number
-  /** índice row-major 0-based */
   index: number
 }
 
-/**
- * Orden de numeración en serpentina por columnas (solo para mostrar el número
- * de módulo). El cableado real usa flowCable.
- */
-export function serpentineOrder(cols: number, rows: number): Cell[] {
-  const out: Cell[] = []
+/** Numeración de módulos ENCENDIDOS: columnas arriba→abajo, izquierda→derecha. */
+export function moduleNumbers(cols: number, rows: number, off: number[]): Map<number, number> {
+  const offSet = new Set(off)
+  const map = new Map<number, number>()
+  let n = 0
   for (let c = 0; c < cols; c++) {
-    const rowsSeq =
-      c % 2 === 0
-        ? Array.from({ length: rows }, (_, i) => i)
-        : Array.from({ length: rows }, (_, i) => rows - 1 - i)
-    for (const r of rowsSeq) out.push({ r, c, index: r * cols + c })
+    for (let r = 0; r < rows; r++) {
+      const idx = r * cols + c
+      if (!offSet.has(idx)) map.set(idx, ++n)
+    }
   }
-  return out
+  return map
 }
 
 /** Módulos que soporta cada salida según el sender y el preset de módulo. */
@@ -36,56 +33,95 @@ export function modulesPerOutput(preset: ModulePreset, sender: Sender): number {
 }
 
 const rc = (index: number, cols: number) => ({ r: Math.floor(index / cols), c: index % cols })
-
-interface Offset {
-  dr: number
-  dc: number
-}
-interface Dir {
-  axis: 'v' | 'h'
-  row: 1 | -1
-  col: 1 | -1
+const adjacent = (a: number, b: number, cols: number) => {
+  const pa = rc(a, cols)
+  const pb = rc(b, cols)
+  return Math.abs(pa.r - pb.r) + Math.abs(pa.c - pb.c) === 1
 }
 
-/** Offsets (en orden) de una tirada respecto a su primer módulo: capta la FORMA. */
-function templateOffsets(run: number[], cols: number): Offset[] {
-  if (!run.length) return [{ dr: 0, dc: 0 }]
-  const p0 = rc(run[0], cols)
-  return run.map((idx) => {
-    const p = rc(idx, cols)
-    return { dr: p.r - p0.r, dc: p.c - p0.c }
-  })
+/** Componentes conexas (adyacencia ortogonal) de un conjunto de módulos. */
+function regions(available: Set<number>, cols: number, rows: number): number[][] {
+  const seen = new Set<number>()
+  const out: number[][] = []
+  for (let i = 0; i < cols * rows; i++) {
+    if (!available.has(i) || seen.has(i)) continue
+    const comp: number[] = []
+    const stack = [i]
+    seen.add(i)
+    while (stack.length) {
+      const cur = stack.pop()!
+      comp.push(cur)
+      const { r, c } = rc(cur, cols)
+      const nbrs = [
+        r > 0 ? cur - cols : -1,
+        r < rows - 1 ? cur + cols : -1,
+        c > 0 ? cur - 1 : -1,
+        c < cols - 1 ? cur + 1 : -1,
+      ]
+      for (const nb of nbrs) {
+        if (nb >= 0 && available.has(nb) && !seen.has(nb)) {
+          seen.add(nb)
+          stack.push(nb)
+        }
+      }
+    }
+    out.push(comp)
+  }
+  return out
 }
 
-/** Dirección primaria (eje y sentido) de una plantilla de offsets. */
-function primaryDir(offs: Offset[]): Dir {
-  const last = offs[offs.length - 1]
-  const axis: 'v' | 'h' = Math.abs(last.dr) >= Math.abs(last.dc) ? 'v' : 'h'
-  return { axis, row: last.dr < 0 ? -1 : 1, col: last.dc < 0 ? -1 : 1 }
-}
-
-const range = (n: number, rev: boolean) =>
-  rev ? Array.from({ length: n }, (_, i) => n - 1 - i) : Array.from({ length: n }, (_, i) => i)
-
-/** Orden en que se buscan los módulos de entrada, según la dirección heredada. */
-function scanOrder(cols: number, rows: number, dir: Dir): number[] {
+/** Serpentina de una región según su forma: ancha→horizontal, alta→vertical. */
+function regionSerpentine(region: number[], cols: number): number[] {
+  const set = new Set(region)
+  let minR = Infinity, maxR = -Infinity, minC = Infinity, maxC = -Infinity
+  for (const idx of region) {
+    const { r, c } = rc(idx, cols)
+    minR = Math.min(minR, r); maxR = Math.max(maxR, r)
+    minC = Math.min(minC, c); maxC = Math.max(maxC, c)
+  }
+  const w = maxC - minC + 1
+  const h = maxR - minR + 1
   const order: number[] = []
-  const cs = range(cols, dir.col < 0)
-  const rs = range(rows, dir.row < 0)
-  if (dir.axis === 'v') {
-    for (const c of cs) for (const r of rs) order.push(r * cols + c)
+  if (w >= h) {
+    // horizontal: fila por fila (izq→der / der→izq alternando)
+    for (let r = minR; r <= maxR; r++) {
+      const cs = (r - minR) % 2 === 0
+        ? range(minC, maxC, 1)
+        : range(maxC, minC, -1)
+      for (const c of cs) {
+        const idx = r * cols + c
+        if (set.has(idx)) order.push(idx)
+      }
+    }
   } else {
-    for (const r of rs) for (const c of cs) order.push(r * cols + c)
+    // vertical: columna por columna (arriba→abajo / abajo→arriba alternando)
+    for (let c = minC; c <= maxC; c++) {
+      const rs = (c - minC) % 2 === 0
+        ? range(minR, maxR, 1)
+        : range(maxR, minR, -1)
+      for (const r of rs) {
+        const idx = r * cols + c
+        if (set.has(idx)) order.push(idx)
+      }
+    }
   }
   return order
 }
 
+function range(from: number, to: number, step: number): number[] {
+  const out: number[] = []
+  if (step > 0) for (let i = from; i <= to; i += step) out.push(i)
+  else for (let i = from; i >= to; i += step) out.push(i)
+  return out
+}
+
 /**
  * Motor de cableado.
- *  - Respeta las salidas bloqueadas (manuales): las mantiene, solo saca módulos apagados.
- *  - Si fillUnlocked, regenera las salidas automáticas copiando el PATRÓN (forma +
- *    dirección + largo) de la primera salida manual (o una tirada vertical al máximo
- *    si no hay manual). Nunca cruza huecos (corta al toparse con apagado/ocupado).
+ *  - Respeta las salidas bloqueadas (manuales): las mantiene, solo saca apagados.
+ *  - Si fillUnlocked, cablea las zonas automáticas: divide en regiones conexas de
+ *    módulos encendidos, cada región con la dirección que le conviene por su forma
+ *    (ancha→izq-der, alta→arriba-abajo), en tiradas del largo de la 1ª manual (o el
+ *    máximo por salida). Nunca cruza huecos.
  */
 export function flowCable(
   screen: Screen,
@@ -116,63 +152,48 @@ export function flowCable(
     return res
   }
 
-  // 1) salidas bloqueadas (manuales): se mantienen, saneadas
+  // salidas manuales: se mantienen, saneadas
   for (let o = 0; o < sender.outputs; o++) {
     if (locked[o]) out[o] = sanitize(wireIn[o] ?? [])
   }
 
   if (!fillUnlocked) {
-    // solo sanear las automáticas existentes (sin regenerar)
     for (let o = 0; o < sender.outputs; o++) {
       if (!locked[o]) out[o] = sanitize(wireIn[o] ?? [])
     }
     return out
   }
 
-  // 2) plantilla: patrón de la primera salida manual, o vertical al máximo por defecto
-  let firstLocked: number[] | null = null
+  // tamaño de tirada: largo de la 1ª salida manual, o el máximo por salida
+  let firstLocked = 0
   for (let o = 0; o < sender.outputs; o++) {
-    if (locked[o] && out[o].length) {
-      firstLocked = out[o]
-      break
-    }
+    if (locked[o] && out[o].length) { firstLocked = out[o].length; break }
   }
-  const offs: Offset[] = firstLocked
-    ? templateOffsets(firstLocked, cols)
-    : Array.from({ length: limit }, (_, i) => ({ dr: i, dc: 0 }))
-  const dir = primaryDir(offs)
-  const order = scanOrder(cols, rows, dir)
+  const chunk = Math.max(1, Math.min(limit, firstLocked || limit))
 
-  let ptr = 0
-  const nextEntry = (): number => {
-    while (ptr < order.length) {
-      const idx = order[ptr]
-      if (isOn(idx) && !used.has(idx)) return idx
-      ptr++
+  // módulos encendidos aún sin cablear → regiones conexas
+  const available = new Set<number>()
+  for (let i = 0; i < total; i++) if (isOn(i) && !used.has(i)) available.add(i)
+
+  const runs: number[][] = []
+  for (const region of regions(available, cols, rows)) {
+    const ordered = regionSerpentine(region, cols)
+    let cur: number[] = []
+    for (const idx of ordered) {
+      if (cur.length > 0 && (cur.length >= chunk || !adjacent(cur[cur.length - 1], idx, cols))) {
+        runs.push(cur)
+        cur = []
+      }
+      cur.push(idx)
     }
-    return -1
+    if (cur.length) runs.push(cur)
   }
 
-  // 3) llenar salidas automáticas copiando la plantilla, cortando en huecos
+  // asignar tiradas a las salidas automáticas (en orden)
+  let ri = 0
   for (let o = 0; o < sender.outputs; o++) {
     if (locked[o]) continue
-    const entry = nextEntry()
-    if (entry < 0) {
-      out[o] = []
-      continue
-    }
-    const p0 = rc(entry, cols)
-    const run: number[] = []
-    for (const { dr, dc } of offs) {
-      const r = p0.r + dr
-      const c = p0.c + dc
-      if (r < 0 || r >= rows || c < 0 || c >= cols) break
-      const idx = r * cols + c
-      if (!isOn(idx) || used.has(idx)) break // corta en hueco/ocupado
-      run.push(idx)
-      used.add(idx)
-    }
-    out[o] = run
+    out[o] = ri < runs.length ? runs[ri++] : []
   }
   return out
 }

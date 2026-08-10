@@ -4,7 +4,7 @@ import { useStore } from '../store'
 import { presetById } from '../data/modulePresets'
 import { senderById } from '../data/senders'
 import { screenMetrics } from '../lib/metrics'
-import { OUTPUT_COLORS, resolveWire, serpentineOrder } from '../lib/cabling'
+import { OUTPUT_COLORS, moduleNumbers, resolveWire } from '../lib/cabling'
 import { CM_PX } from '../lib/layout'
 import { Draggable } from './Draggable'
 import { IconGear, IconPalette, IconTrash } from './icons'
@@ -26,15 +26,11 @@ export function ScreenView({ screen }: { screen: Screen }) {
   const gridW = screen.cols * cellW
   const gridH = screen.rows * cellH
 
-  // numeración en orden de cableado (serpentina)
-  const orderMap = useMemo(() => {
-    const order = serpentineOrder(screen.cols, screen.rows)
-    const map = new Array<number>(screen.cols * screen.rows)
-    order.forEach((cell, i) => {
-      map[cell.index] = i + 1
-    })
-    return map
-  }, [screen.cols, screen.rows])
+  // numeración de módulos ENCENDIDOS: columnas arriba→abajo, izq→der
+  const numMap = useMemo(
+    () => moduleNumbers(screen.cols, screen.rows, screen.off),
+    [screen.cols, screen.rows, screen.off],
+  )
 
   const wire = useMemo(() => resolveWire(screen, sender), [screen, sender])
 
@@ -75,7 +71,7 @@ export function ScreenView({ screen }: { screen: Screen }) {
           boxShadow: col ? `inset 0 4px 0 ${col}, inset 0 0 0 0.5px rgba(0,0,0,0.22)` : undefined,
         }}
       >
-        {orderMap[i]}
+        {numMap.get(i) ?? ''}
       </div>,
     )
   }
@@ -163,19 +159,25 @@ export function ScreenView({ screen }: { screen: Screen }) {
         })}
       </svg>
 
-      <div className="overlay">
+      <Draggable
+        pos={screen.resPos ?? { x: 120, y: 150 }}
+        onChange={(p) => updateScreen(screen.id, { resPos: p })}
+      >
         <div className="res">W {m.wPx} × H {m.hPx}</div>
-      </div>
+      </Draggable>
 
       <Draggable pos={screen.namePos} onChange={(p) => updateScreen(screen.id, { namePos: p })}>
-        <div className="drag-name">{screen.name}</div>
+        <div className="drag-name" style={{ fontSize: screen.nameSize ?? 30 }}>{screen.name}</div>
       </Draggable>
       <Draggable
         className=""
         pos={screen.logoPos}
         onChange={(p) => updateScreen(screen.id, { logoPos: p })}
       >
-        <div className="drag-logo">
+        <div
+          className="drag-logo"
+          style={{ transform: `scale(${screen.logoSize ?? 1})`, transformOrigin: 'top left' }}
+        >
           <svg viewBox="0 0 34 34" fill="none">
             <rect x="2" y="2" width="30" height="30" rx="6" stroke="currentColor" strokeWidth="1.6" />
             <rect x="7" y="7" width="7" height="7" fill="currentColor" />

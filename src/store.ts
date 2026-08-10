@@ -1,10 +1,12 @@
 import { create } from 'zustand'
-import type { AccentKey, Screen } from './types'
+import type { AccentKey, Marker, Screen } from './types'
 import { accentByKey } from './data/accents'
 import { presetById } from './data/modulePresets'
 import { senderById } from './data/senders'
 import { flowCable, modulesPerOutput } from './lib/cabling'
-import { screenSizePx, stackIfOverlapping } from './lib/layout'
+import { contentBounds, screenSizePx, stackIfOverlapping } from './lib/layout'
+
+let markerSeq = 1
 
 export type Tool = 'hand' | 'brush' | 'cable'
 
@@ -35,26 +37,33 @@ function makeScreen(partial: Partial<Screen> = {}): Screen {
     senderId: 'ns-vx400',
     namePos: { x: 120, y: 60 },
     logoPos: { x: 24, y: 220 },
+    resPos: { x: 120, y: 150 },
+    nameSize: 30,
+    logoSize: 1,
     ...partial,
   }
 }
 
-const PALETTES: Array<[string, string]> = [
+export const PALETTES: Array<[string, string]> = [
   ['#4A78B8', '#3B5F98'],
   ['#7CC72E', '#66A423'],
   ['#8B5CF6', '#6A3EC1'],
   ['#E8C24A', '#C7A233'],
   ['#39C6C6', '#2A9E9E'],
+  ['#EC4899', '#B7336F'],
+  ['#F97316', '#C25A10'],
 ]
 
 interface PersistShape {
   projectName: string
   screens: Screen[]
+  markers?: Marker[]
 }
 
 interface State {
   projectName: string
   screens: Screen[]
+  markers: Marker[]
   selectedId: string | null
   accentKey: AccentKey
   editingId: string | null
@@ -72,7 +81,11 @@ interface State {
   toggleModule: (id: string, index: number) => void
   setModuleOff: (id: string, index: number, off: boolean) => void
   cycleColor: (id: string) => void
+  setPalette: (id: string, palette: [string, string]) => void
   mirrorScreen: (id: string) => void
+  addMarker: () => void
+  updateMarker: (id: string, patch: Partial<Marker>) => void
+  deleteMarker: (id: string) => void
   select: (id: string | null) => void
   openEdit: (id: string) => void
   closeEdit: () => void
@@ -120,7 +133,7 @@ function defaultScreens(): Screen[] {
   ]
 }
 
-function loadProject(): { projectName: string; screens: Screen[] } {
+function loadProject(): { projectName: string; screens: Screen[]; markers: Marker[] } {
   try {
     const raw = localStorage.getItem('pm_project')
     if (raw) {
@@ -133,17 +146,21 @@ function loadProject(): { projectName: string; screens: Screen[] } {
           if (n > max) max = n
         }
         idSeq = max + 1
-        return { projectName: data.projectName ?? '', screens: data.screens }
+        return { projectName: data.projectName ?? '', screens: data.screens, markers: data.markers ?? [] }
       }
     }
   } catch {
     /* ignore */
   }
-  return { projectName: '', screens: defaultScreens() }
+  return { projectName: '', screens: defaultScreens(), markers: [] }
 }
 
 const bootRaw = loadProject()
-const boot = { projectName: bootRaw.projectName, screens: stackIfOverlapping(bootRaw.screens) }
+const boot = {
+  projectName: bootRaw.projectName,
+  screens: stackIfOverlapping(bootRaw.screens),
+  markers: bootRaw.markers,
+}
 
 // helper: aplica una mutación sobre screens registrando historial
 type SetFn = (partial: Partial<State> | ((s: State) => Partial<State>)) => void
@@ -159,6 +176,7 @@ function mutate(set: SetFn, fn: (screens: Screen[]) => Screen[]) {
 export const useStore = create<State>((set, get) => ({
   projectName: boot.projectName,
   screens: boot.screens,
+  markers: boot.markers,
   selectedId: boot.screens[0]?.id ?? null,
   accentKey: loadAccent(),
   editingId: null,
@@ -235,6 +253,30 @@ export const useStore = create<State>((set, get) => ({
         return { ...sc, palette: PALETTES[(idx + 1) % PALETTES.length] }
       }),
     ),
+
+  setPalette: (id, palette) =>
+    mutate(set, (screens) => screens.map((sc) => (sc.id === id ? { ...sc, palette } : sc))),
+
+  addMarker: () =>
+    set((s) => {
+      const b = contentBounds(s.screens)
+      const w = 600
+      const h = 400
+      const marker: Marker = {
+        id: `mk${markerSeq++}`,
+        x: b.minX + b.w / 2 - w / 2,
+        y: b.minY + b.h / 2 - h / 2,
+        w,
+        h,
+        color: '#8B93A7',
+      }
+      return { markers: [...s.markers, marker] }
+    }),
+
+  updateMarker: (id, patch) =>
+    set((s) => ({ markers: s.markers.map((mk) => (mk.id === id ? { ...mk, ...patch } : mk)) })),
+
+  deleteMarker: (id) => set((s) => ({ markers: s.markers.filter((mk) => mk.id !== id) })),
 
   mirrorScreen: (id) =>
     mutate(set, (screens) =>
@@ -375,6 +417,7 @@ export const useStore = create<State>((set, get) => ({
     set({
       projectName: data.projectName ?? '',
       screens: data.screens,
+      markers: data.markers ?? [],
       selectedId: data.screens[0]?.id ?? null,
       past: [],
       future: [],
@@ -383,14 +426,14 @@ export const useStore = create<State>((set, get) => ({
 
   serialize: () => {
     const s = get()
-    return { projectName: s.projectName, screens: s.screens }
+    return { projectName: s.projectName, screens: s.screens, markers: s.markers }
   },
 }))
 
 // Autosave en localStorage (proyecto actual)
 useStore.subscribe((s) => {
   try {
-    const data: PersistShape = { projectName: s.projectName, screens: s.screens }
+    const data: PersistShape = { projectName: s.projectName, screens: s.screens, markers: s.markers }
     localStorage.setItem('pm_project', JSON.stringify(data))
   } catch {
     /* ignore */
