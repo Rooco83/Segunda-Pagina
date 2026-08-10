@@ -71,22 +71,63 @@ interface Corner {
   left: boolean
 }
 
-/** Primer recorrido cableado a mano (para imitar su dirección). */
-function firstLockedRun(screen: Screen, sender: Sender): number[] | null {
-  const locked = screen.wireLocked ?? []
-  const wire = screen.wire ?? []
-  for (let o = 0; o < sender.outputs; o++) {
-    if (locked[o] && wire[o]?.length) return wire[o]
-  }
-  return null
-}
+/**
+ * Replica EXACTO el último recorrido manual (misma forma y cantidad), avanzando con
+ * el paso entre los dos últimos manuales (o derivado de la forma si hay uno solo).
+ * Corta apenas una réplica no encaja idéntica (hueco/borde/ocupado) → se hace manual.
+ */
+function replicateLast(
+  lockedRuns: number[][],
+  cols: number,
+  rows: number,
+  isOn: (i: number) => boolean,
+  used: Set<number>,
+  maxRuns: number,
+): number[][] {
+  const ref = lockedRuns[lockedRuns.length - 1]
+  const p0 = rc(ref[0], cols)
+  const tmpl = ref.map((idx) => {
+    const p = rc(idx, cols)
+    return { dr: p.r - p0.r, dc: p.c - p0.c }
+  })
 
-/** Rincón de inicio (arriba/abajo · izq/der) según el primer cable manual. */
-function startCorner(run: number[] | null, cols: number): Corner {
-  if (!run || run.length < 2) return { top: true, left: true }
-  const a = rc(run[0], cols)
-  const b = rc(run[run.length - 1], cols)
-  return { top: a.r <= b.r, left: a.c <= b.c }
+  let prog: { dr: number; dc: number }
+  if (lockedRuns.length >= 2) {
+    const a = rc(lockedRuns[lockedRuns.length - 2][0], cols)
+    prog = { dr: p0.r - a.r, dc: p0.c - a.c }
+  } else {
+    let minDr = 0, maxDr = 0, minDc = 0, maxDc = 0
+    for (const o of tmpl) {
+      minDr = Math.min(minDr, o.dr); maxDr = Math.max(maxDr, o.dr)
+      minDc = Math.min(minDc, o.dc); maxDc = Math.max(maxDc, o.dc)
+    }
+    const tw = maxDc - minDc + 1
+    const th = maxDr - minDr + 1
+    prog = th >= tw ? { dr: 0, dc: tw } : { dr: th, dc: 0 }
+  }
+
+  const runs: number[][] = []
+  if (prog.dr === 0 && prog.dc === 0) return runs
+  let er = p0.r
+  let ec = p0.c
+  while (runs.length < maxRuns) {
+    er += prog.dr
+    ec += prog.dc
+    const cells: number[] = []
+    let ok = true
+    for (const o of tmpl) {
+      const r = er + o.dr
+      const c = ec + o.dc
+      if (r < 0 || r >= rows || c < 0 || c >= cols) { ok = false; break }
+      const idx = r * cols + c
+      if (!isOn(idx) || used.has(idx)) { ok = false; break }
+      cells.push(idx)
+    }
+    if (!ok) break // cambiaría la cantidad → cortar (lo sigue el usuario a mano)
+    cells.forEach((i) => used.add(i))
+    runs.push(cells)
+  }
+  return runs
 }
 
 /**
@@ -195,14 +236,23 @@ export function flowCable(
     return out
   }
 
-  const corner = startCorner(firstLockedRun(screen, sender), cols)
+  // recorridos manuales presentes, en orden de salida
+  const lockedRuns: number[][] = []
+  for (let o = 0; o < sender.outputs; o++) if (locked[o] && out[o].length) lockedRuns.push(out[o])
+  const unlockedCount = out.reduce((n, _, o) => n + (locked[o] ? 0 : 1), 0)
 
-  const available = new Set<number>()
-  for (let i = 0; i < total; i++) if (isOn(i) && !used.has(i)) available.add(i)
-
-  const runs: number[][] = []
-  for (const region of regions(available, cols, rows)) {
-    runs.push(...splitLines(regionLines(region, cols, corner), limit))
+  let runs: number[][]
+  if (lockedRuns.length === 0) {
+    // Sin referencia manual: relleno por regiones en líneas completas (arriba-izq).
+    const available = new Set<number>()
+    for (let i = 0; i < total; i++) if (isOn(i) && !used.has(i)) available.add(i)
+    runs = []
+    for (const region of regions(available, cols, rows)) {
+      runs.push(...splitLines(regionLines(region, cols, { top: true, left: true }), limit))
+    }
+  } else {
+    // Con referencia manual: replicar EXACTO el ÚLTIMO recorrido; cortar si no encaja.
+    runs = replicateLast(lockedRuns, cols, rows, isOn, used, unlockedCount)
   }
 
   let ri = 0
