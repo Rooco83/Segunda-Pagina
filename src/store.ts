@@ -83,9 +83,11 @@ interface State {
   cycleColor: (id: string) => void
   setPalette: (id: string, palette: [string, string]) => void
   mirrorScreen: (id: string) => void
-  addMarker: () => void
+  markerSel: string | null
+  addMarker: (opts: { w: number; h: number; pitch: number; color?: string }) => void
   updateMarker: (id: string, patch: Partial<Marker>) => void
   deleteMarker: (id: string) => void
+  setMarkerSel: (id: string | null) => void
   select: (id: string | null) => void
   openEdit: (id: string) => void
   closeEdit: () => void
@@ -177,6 +179,7 @@ export const useStore = create<State>((set, get) => ({
   projectName: boot.projectName,
   screens: boot.screens,
   markers: boot.markers,
+  markerSel: null,
   selectedId: boot.screens[0]?.id ?? null,
   accentKey: loadAccent(),
   editingId: null,
@@ -257,26 +260,38 @@ export const useStore = create<State>((set, get) => ({
   setPalette: (id, palette) =>
     mutate(set, (screens) => screens.map((sc) => (sc.id === id ? { ...sc, palette } : sc))),
 
-  addMarker: () =>
+  addMarker: (opts) =>
     set((s) => {
+      // ubicar a la derecha de todo lo existente (visible, sin solapar)
       const b = contentBounds(s.screens)
-      const w = 600
-      const h = 400
+      let maxX = b.w ? b.minX + b.w : 0
+      let minY = b.w ? b.minY : 0
+      for (const mk of s.markers) {
+        maxX = Math.max(maxX, mk.x + mk.w)
+        minY = Math.min(minY, mk.y)
+      }
       const marker: Marker = {
         id: `mk${markerSeq++}`,
-        x: b.minX + b.w / 2 - w / 2,
-        y: b.minY + b.h / 2 - h / 2,
-        w,
-        h,
-        color: '#8B93A7',
+        x: maxX + 160,
+        y: minY,
+        w: opts.w,
+        h: opts.h,
+        pitch: opts.pitch,
+        color: opts.color ?? '#8B93A7',
       }
-      return { markers: [...s.markers, marker] }
+      return { markers: [...s.markers, marker], markerSel: marker.id }
     }),
 
   updateMarker: (id, patch) =>
     set((s) => ({ markers: s.markers.map((mk) => (mk.id === id ? { ...mk, ...patch } : mk)) })),
 
-  deleteMarker: (id) => set((s) => ({ markers: s.markers.filter((mk) => mk.id !== id) })),
+  deleteMarker: (id) =>
+    set((s) => ({
+      markers: s.markers.filter((mk) => mk.id !== id),
+      markerSel: s.markerSel === id ? null : s.markerSel,
+    })),
+
+  setMarkerSel: (id) => set({ markerSel: id }),
 
   mirrorScreen: (id) =>
     mutate(set, (screens) =>

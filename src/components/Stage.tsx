@@ -20,6 +20,7 @@ export function Stage() {
   const startCableStroke = useStore((s) => s.startCableStroke)
   const updateScreen = useStore((s) => s.updateScreen)
   const updateMarker = useStore((s) => s.updateMarker)
+  const setMarkerSel = useStore((s) => s.setMarkerSel)
   const snapshot = useStore((s) => s.snapshot)
 
   const stageRef = useRef<HTMLDivElement>(null)
@@ -37,6 +38,18 @@ export function Stage() {
       const sh = stage.clientHeight
       const st = useStore.getState()
       let b = contentBounds(st.screens)
+      // incluir marcadores en el encuadre general
+      if (st.markers.length) {
+        let minX = b.w ? b.minX : Infinity
+        let minY = b.w ? b.minY : Infinity
+        let maxX = b.w ? b.minX + b.w : -Infinity
+        let maxY = b.w ? b.minY + b.h : -Infinity
+        for (const mk of st.markers) {
+          minX = Math.min(minX, mk.x); minY = Math.min(minY, mk.y)
+          maxX = Math.max(maxX, mk.x + mk.w); maxY = Math.max(maxY, mk.y + mk.h)
+        }
+        b = { minX, minY, w: maxX - minX, h: maxY - minY }
+      }
       if (useSelection && st.selectedId) {
         const sc = st.screens.find((s) => s.id === st.selectedId)
         if (sc) {
@@ -129,6 +142,7 @@ export function Stage() {
         const id = markerEl.dataset.marker!
         const mk = useStore.getState().markers.find((m) => m.id === id)
         if (mk) {
+          setMarkerSel(id)
           moveRef.current = { id, kind: 'marker', sx: e.clientX, sy: e.clientY, ox: mk.x, oy: mk.y }
           stageRef.current?.setPointerCapture(e.pointerId)
           return
@@ -139,7 +153,10 @@ export function Stage() {
     if (el.closest(CHROME)) return
 
     // Pan (mano, o área vacía en cualquier herramienta)
-    if (!el.closest('.screen')) select(null)
+    if (!el.closest('.screen') && !el.closest('.marker')) {
+      select(null)
+      setMarkerSel(null)
+    }
     drag.current = { sx: e.clientX, sy: e.clientY, ox: pan.x, oy: pan.y }
     setPanning(true)
     stageRef.current?.setPointerCapture(e.pointerId)
@@ -164,7 +181,16 @@ export function Stage() {
       const rawX = m.ox + (e.clientX - m.sx) / zoom
       const rawY = m.oy + (e.clientY - m.sy) / zoom
       if (m.kind === 'marker') {
-        updateMarker(m.id, { x: rawX, y: rawY })
+        const st = useStore.getState()
+        const me = st.markers.find((mk) => mk.id === m.id)
+        if (me) {
+          const others = [
+            ...st.screens.map((s) => ({ x: s.x, y: s.y, ...screenSizePx(s) })),
+            ...st.markers.filter((mk) => mk.id !== m.id).map((mk) => ({ x: mk.x, y: mk.y, w: mk.w, h: mk.h })),
+          ]
+          const snapped = snapPosition(rawX, rawY, me.w, me.h, others, 12 / zoom)
+          updateMarker(m.id, snapped)
+        }
         return
       }
       const all = useStore.getState().screens

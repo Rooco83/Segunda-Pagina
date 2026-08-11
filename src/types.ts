@@ -61,13 +61,16 @@ export interface Screen {
   autoCabled?: boolean
 }
 
-/** Marcador de referencia en el lienzo (rectángulo sólido, en px). NO se exporta. */
+/** Marcador de referencia en el lienzo (rectángulo sólido). NO se exporta.
+ *  w/h están en unidades de lienzo (cm, escala física, para verse junto a las pantallas).
+ *  pitch permite mostrar/editar la medida en px (px = w*10/pitch) o en metros (w/100). */
 export interface Marker {
   id: string
   x: number
   y: number
   w: number
   h: number
+  pitch: number
   color: string
 }
 
