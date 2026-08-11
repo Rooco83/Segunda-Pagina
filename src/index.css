@@ -263,4 +263,43 @@ button { font-family: inherit; }
 .exp-opt h4 { margin: 0 0 5px; font-size: 16px; }
 .exp-opt p { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
 
+/* --- Cuenta (topbar) --- */
+.acct { position: relative; }
+.gg { width: 17px; height: 17px; }
+.btn .gg { margin-right: -1px; }
+.acct-chip { display: flex; align-items: center; gap: 8px; background: var(--panel-2); border: 1px solid var(--hair-2); border-radius: var(--r-sm); padding: 5px 11px 5px 5px; cursor: pointer; color: var(--text); max-width: 190px; }
+.acct-chip:hover { border-color: var(--acc); }
+.acct-chip img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
+.acct-chip .avatar { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--acc); color: var(--acc-ink); font-weight: 700; font-size: 13px; }
+.acct-chip .nm { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acct-menu { position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; min-width: 220px; background: var(--panel); border: 1px solid var(--hair-2); border-radius: var(--r-md); padding: 8px; box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.85); }
+.acct-menu.err { padding: 14px; }
+.acct-menu.err p { margin: 0 0 12px; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.acct-id { padding: 8px 10px 12px; border-bottom: 1px solid var(--hair); margin-bottom: 6px; }
+.acct-id b { display: block; font-size: 13.5px; }
+.acct-id span { font-size: 12px; color: var(--muted); }
+.acct-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border-radius: var(--r-sm); background: transparent; border: none; color: var(--text); font-size: 13.5px; cursor: pointer; }
+.acct-item:hover { background: var(--panel-2); color: var(--acc); }
+.acct-item svg { width: 17px; height: 17px; }
+
+/* --- Nube (modal proyecto) --- */
+.card.cloud h3 { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.card.cloud h3 svg { width: 16px; height: 16px; }
+.cloud-p { font-size: 12.5px; color: var(--muted); line-height: 1.6; margin: 0 0 14px; text-align: center; }
+.cloud-list-head { display: flex; align-items: baseline; justify-content: space-between; margin: 16px 0 8px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.linkbtn { background: none; border: none; color: var(--acc); font-size: 11px; cursor: pointer; text-transform: none; letter-spacing: 0; }
+.linkbtn:disabled { color: var(--muted-2); cursor: default; }
+.cloud-list { display: flex; flex-direction: column; gap: 8px; max-height: 210px; overflow-y: auto; }
+.cloud-empty { font-size: 12.5px; color: var(--muted-2); text-align: center; padding: 14px; }
+.cloud-file { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--hair-2); border-radius: var(--r-sm); background: var(--panel-2); color: var(--text); cursor: pointer; }
+.cloud-file:hover { border-color: var(--acc); }
+.cloud-file svg { width: 20px; height: 20px; color: var(--acc); flex: 0 0 auto; }
+.cloud-file b { display: block; font-size: 13.5px; }
+.cloud-file span { font-size: 11.5px; color: var(--muted); font-family: var(--mono); }
+.cloud-msg { margin-top: 12px; font-size: 12.5px; line-height: 1.5; display: flex; align-items: center; gap: 7px; padding: 10px 12px; border-radius: var(--r-sm); }
+.cloud-msg svg { width: 16px; height: 16px; flex: 0 0 auto; }
+.cloud-msg.ok { background: var(--acc-soft); border: 1px solid var(--acc); color: var(--text); }
+.cloud-msg.bad { background: rgba(220, 70, 70, 0.1); border: 1px solid rgba(220, 70, 70, 0.5); color: #ff9b9b; }
+.exp-opt:disabled { opacity: 0.6; cursor: default; }
+
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }

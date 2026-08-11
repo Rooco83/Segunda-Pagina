@@ -1,6 +1,7 @@
 import { useStore } from '../store'
 import { projectMetrics } from '../lib/metrics'
-import { IconExport, IconUser } from './icons'
+import { IconExport } from './icons'
+import { AccountMenu } from './AccountMenu'
 
 function mpx(px: number): string {
   return (px / 1_000_000).toFixed(2)
@@ -75,9 +76,7 @@ export function TopBar() {
       <button className="btn btn-primary" onClick={() => setExportOpen(true)}>
         <IconExport /> Exportar
       </button>
-      <button className="btn btn-ghost" style={{ padding: '8px 12px' }} title="Iniciar sesión con tu correo">
-        <IconUser /> Iniciar sesión
-      </button>
+      <AccountMenu />
     </header>
   )
 }
