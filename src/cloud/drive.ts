@@ -97,12 +97,32 @@ export class AuthError extends Error {
   }
 }
 
+/** Lanza un error con el detalle real que devuelve Google (status + mensaje). */
+async function driveError(r: Response, fallback: string): Promise<never> {
+  let detail = ''
+  try {
+    const d = await r.json()
+    detail = d?.error?.message || ''
+  } catch {
+    /* sin cuerpo JSON */
+  }
+  // El caso más común: la Drive API no está habilitada en el proyecto.
+  if (r.status === 403 && /has not been used|disabled|SERVICE_DISABLED/i.test(detail)) {
+    throw new Error(
+      'La Google Drive API no está habilitada en tu proyecto de Google Cloud. ' +
+        'Andá a Google Cloud → APIs y servicios → Biblioteca → «Google Drive API» → Habilitar, ' +
+        'esperá 1-2 min y reintentá.',
+    )
+  }
+  throw new Error(detail ? `${fallback} (${r.status}: ${detail})` : `${fallback} (HTTP ${r.status})`)
+}
+
 async function listFiles(token: string, q: string, fields = 'files(id,name,modifiedTime,parents)') {
   const url =
     'https://www.googleapis.com/drive/v3/files?spaces=drive' +
     `&q=${encodeURIComponent(q)}&fields=${encodeURIComponent(fields)}&pageSize=200`
   const r = await driveGet(token, url)
-  if (!r.ok) throw new Error('Error consultando Drive.')
+  if (!r.ok) await driveError(r, 'Error consultando Drive.')
   const d = await r.json()
   return (d.files ?? []) as { id: string; name: string; modifiedTime?: string; parents?: string[] }[]
 }
@@ -116,7 +136,7 @@ async function createFolder(token: string, name: string, parentId?: string): Pro
     body: JSON.stringify(body),
   })
   if (r.status === 401) throw new AuthError()
-  if (!r.ok) throw new Error('No se pudo crear la carpeta en Drive.')
+  if (!r.ok) await driveError(r, 'No se pudo crear la carpeta en Drive.')
   return (await r.json()).id
 }
 
@@ -152,7 +172,7 @@ async function uploadFile(
     body,
   })
   if (r.status === 401) throw new AuthError()
-  if (!r.ok) throw new Error('No se pudo guardar el archivo en Drive.')
+  if (!r.ok) await driveError(r, 'No se pudo guardar el archivo en Drive.')
   return (await r.json()).id
 }
 
@@ -219,6 +239,6 @@ export async function listProjects(token: string): Promise<CloudFile[]> {
 /** Descarga el contenido (texto JSON) de un archivo. */
 export async function readProject(token: string, id: string): Promise<string> {
   const r = await driveGet(token, `https://www.googleapis.com/drive/v3/files/${id}?alt=media`)
-  if (!r.ok) throw new Error('No se pudo abrir el proyecto de Drive.')
+  if (!r.ok) await driveError(r, 'No se pudo abrir el proyecto de Drive.')
   return r.text()
 }
