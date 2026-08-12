@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 import { useAuth } from '../cloud/authStore'
+import { useSync } from '../cloud/projectSync'
 import { cloudEnabled } from '../cloud/config'
-import { CloudFile, listProjects, readProject, saveProject } from '../cloud/drive'
+import { CloudFile, listProjects, readProject } from '../cloud/drive'
 import { IconCheck, IconCloud, IconCloudUp, IconClose, IconFolder, IconGoogle, IconSave } from './icons'
 
 export function ProjectModal({ onClose }: { onClose: () => void }) {
@@ -48,9 +49,8 @@ export function ProjectModal({ onClose }: { onClose: () => void }) {
     setBusy('save')
     setMsg(null)
     try {
-      const content = JSON.stringify(serialize(), null, 2)
-      const res = await runDrive((t) => saveProject(t, projectName, content))
-      setMsg({ ok: true, text: `Guardado en Drive: ${res.path}` })
+      const res = await useSync.getState().saveNow() // arma el autoguardado
+      setMsg({ ok: true, text: `Guardado en Drive: ${res.path}. Autoguardado activado.` })
       setCloudList(null) // forzar refresco al reabrir la lista
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? e.message : 'No se pudo guardar en Drive.' })
@@ -78,6 +78,7 @@ export function ProjectModal({ onClose }: { onClose: () => void }) {
     try {
       const txt = await runDrive((t) => readProject(t, f.id))
       loadProject(JSON.parse(txt))
+      useSync.getState().armFromCurrent() // seguir autoguardando este proyecto
       onClose()
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? e.message : 'No se pudo abrir el proyecto.' })

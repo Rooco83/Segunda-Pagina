@@ -68,6 +68,7 @@ interface State {
   accentKey: AccentKey
   editingId: string | null
   exportOpen: boolean
+  projectOpen: boolean
   zoom: number
   tool: Tool
   activeOutput: number | null
@@ -92,6 +93,7 @@ interface State {
   openEdit: (id: string) => void
   closeEdit: () => void
   setExportOpen: (v: boolean) => void
+  setProjectOpen: (v: boolean) => void
   setAccent: (key: AccentKey) => void
   setZoom: (z: number) => void
   setTool: (t: Tool) => void
@@ -164,6 +166,7 @@ export const useStore = create<State>((set, get) => ({
   accentKey: loadAccent(),
   editingId: null,
   exportOpen: false,
+  projectOpen: false,
   zoom: 0.62,
   tool: 'hand',
   activeOutput: null,
@@ -290,6 +293,7 @@ export const useStore = create<State>((set, get) => ({
   openEdit: (id) => set({ editingId: id, selectedId: id }),
   closeEdit: () => set({ editingId: null }),
   setExportOpen: (v) => set({ exportOpen: v }),
+  setProjectOpen: (v) => set({ projectOpen: v }),
   setTool: (t) =>
     set((s) => ({ tool: t, activeOutput: t === 'cable' ? (s.activeOutput ?? 0) : s.activeOutput })),
 

@@ -6,6 +6,7 @@ import { AccentSwitcher } from './components/AccentSwitcher'
 import { ContextTools } from './components/ContextTools'
 import { Stage } from './components/Stage'
 import { ToolDock } from './components/ToolDock'
+import { AutoSaveBar } from './components/AutoSaveBar'
 import { EditScreenModal } from './components/EditScreenModal'
 import { ExportModal } from './components/ExportModal'
 
@@ -53,6 +54,7 @@ export default function App() {
     <div className="app">
       <TopBar />
       <Stage />
+      <AutoSaveBar />
       <AccentSwitcher />
       <ContextTools />
       <ToolDock />

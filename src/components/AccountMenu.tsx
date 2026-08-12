@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../cloud/authStore'
+import { useSync } from '../cloud/projectSync'
 import { cloudEnabled } from '../cloud/config'
 import { IconGoogle, IconLogout, IconUser } from './icons'
 
@@ -65,6 +66,7 @@ export function AccountMenu() {
             className="acct-item"
             onClick={() => {
               signOut()
+              useSync.getState().disarm()
               setOpen(false)
             }}
           >

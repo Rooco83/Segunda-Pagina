@@ -8,7 +8,8 @@ export function ContextTools() {
   const addScreen = useStore((s) => s.addScreen)
   const mirrorScreen = useStore((s) => s.mirrorScreen)
   const selectedId = useStore((s) => s.selectedId)
-  const [projectOpen, setProjectOpen] = useState(false)
+  const projectOpen = useStore((s) => s.projectOpen)
+  const setProjectOpen = useStore((s) => s.setProjectOpen)
   const [markerOpen, setMarkerOpen] = useState(false)
 
   return (
