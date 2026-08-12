@@ -135,33 +135,13 @@ function defaultScreens(): Screen[] {
   ]
 }
 
-function loadProject(): { projectName: string; screens: Screen[]; markers: Marker[] } {
-  try {
-    const raw = localStorage.getItem('pm_project')
-    if (raw) {
-      const data = JSON.parse(raw) as PersistShape
-      if (Array.isArray(data.screens) && data.screens.length) {
-        // avanzar idSeq más allá de los ids cargados
-        let max = 0
-        for (const s of data.screens) {
-          const n = Number(String(s.id).replace(/\D/g, ''))
-          if (n > max) max = n
-        }
-        idSeq = max + 1
-        return { projectName: data.projectName ?? '', screens: data.screens, markers: data.markers ?? [] }
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-  return { projectName: '', screens: defaultScreens(), markers: [] }
-}
-
-const bootRaw = loadProject()
+// La app arranca SIEMPRE reseteada (proyecto nuevo en blanco). El trabajo previo NO
+// se restaura del navegador: se recupera iniciando sesión y cargando el proyecto desde
+// tu Drive (o abriendo un archivo .pmap).
 const boot = {
-  projectName: bootRaw.projectName,
-  screens: stackIfOverlapping(bootRaw.screens),
-  markers: bootRaw.markers,
+  projectName: '',
+  screens: stackIfOverlapping(defaultScreens()),
+  markers: [] as Marker[],
 }
 
 // helper: aplica una mutación sobre screens registrando historial
@@ -442,12 +422,11 @@ export const useStore = create<State>((set, get) => ({
   },
 }))
 
-// Autosave en localStorage (proyecto actual)
-useStore.subscribe((s) => {
-  try {
-    const data: PersistShape = { projectName: s.projectName, screens: s.screens, markers: s.markers }
-    localStorage.setItem('pm_project', JSON.stringify(data))
-  } catch {
-    /* ignore */
-  }
-})
+// Sin autosave en localStorage: la app no persiste el trabajo entre sesiones a propósito.
+// El guardado es explícito → Drive (con sesión) o archivo .pmap. Limpiamos cualquier
+// borrador viejo que hubiera quedado de versiones anteriores.
+try {
+  localStorage.removeItem('pm_project')
+} catch {
+  /* ignore */
+}
