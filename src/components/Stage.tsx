@@ -4,6 +4,7 @@ import { contentBounds, screenSizePx, snapPosition } from '../lib/layout'
 import { ScreenView } from './ScreenView'
 import { MarkerView } from './MarkerView'
 import { CablePanel } from './CablePanel'
+import { IconLayers, IconPlus } from './icons'
 
 // Elementos de UI sobre los que NO se panea ni pinta.
 const CHROME = '.cable-panel,.acc-switch,.ctx-tools,.dock,.zoombadge,.modal,.drag,button,.stbtn,.tool'
@@ -236,6 +237,17 @@ export function Stage() {
           <ScreenView key={s.id} screen={s} />
         ))}
       </div>
+
+      {screens.length === 0 && markers.length === 0 && (
+        <div className="empty-state">
+          <div className="es-ico"><IconLayers /></div>
+          <h3>Proyecto nuevo</h3>
+          <p>
+            Tocá <span className="es-k"><IconPlus /> Nueva</span> para crear tu primera pantalla,
+            o <b>Cargar</b> para abrir un proyecto guardado.
+          </p>
+        </div>
+      )}
 
       <CablePanel />
 

@@ -4,7 +4,7 @@ import { accentByKey } from './data/accents'
 import { presetById } from './data/modulePresets'
 import { senderById } from './data/senders'
 import { flowCable, modulesPerOutput } from './lib/cabling'
-import { contentBounds, screenSizePx, stackIfOverlapping } from './lib/layout'
+import { contentBounds, screenSizePx } from './lib/layout'
 
 let markerSeq = 1
 
@@ -121,28 +121,12 @@ function loadAccent(): AccentKey {
   return 'magenta'
 }
 
-function defaultScreens(): Screen[] {
-  return [
-    makeScreen({ name: 'Pantalla arriba', palette: PALETTES[0], off: [85, 86, 87, 102, 103], x: 0, y: 0 }),
-    makeScreen({
-      name: 'CENTRAL',
-      presetId: 'P3.9-50x50',
-      cols: 18,
-      rows: 6,
-      palette: PALETTES[1],
-      senderId: 'ns-vx600',
-      x: 0,
-      y: 920,
-    }),
-  ]
-}
-
-// La app arranca SIEMPRE reseteada (proyecto nuevo en blanco). El trabajo previo NO
-// se restaura del navegador: se recupera iniciando sesión y cargando el proyecto desde
-// tu Drive (o abriendo un archivo .pmap).
+// La app arranca SIEMPRE reseteada: proyecto nuevo EN BLANCO (sin pantallas). El trabajo
+// previo NO se restaura del navegador: se recupera iniciando sesión y cargando el proyecto
+// desde tu Drive (o abriendo un archivo .pmap). Para empezar: botón "+ Nueva".
 const boot = {
   projectName: '',
-  screens: stackIfOverlapping(defaultScreens()),
+  screens: [] as Screen[],
   markers: [] as Marker[],
 }
 
