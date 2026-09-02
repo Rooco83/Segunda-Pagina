@@ -16,6 +16,15 @@ la vez calidez.
   cada app tiene **un color de acento propio** (esta usó naranja; la próxima puede
   ser otro).
 
+### Logo
+![Logo Venue — la "V" blanca sobre navy](https://raw.githubusercontent.com/Rooco83/Segunda-Pagina/claude/mobile-google-sheets-automation-64txcn/ticket-app/venue_v.png)
+
+- Archivo del logo: `ticket-app/venue_v.png`
+- Link directo:
+  `https://raw.githubusercontent.com/Rooco83/Segunda-Pagina/claude/mobile-google-sheets-automation-64txcn/ticket-app/venue_v.png`
+- Uso: la **"V" blanca sobre navy** como logo/ícono. Centrada en las pantallas de
+  estado (bienvenida, éxito, carga). Dejar aire alrededor; no deformar ni recolorear.
+
 ## Paleta base (fija) + acento (variable)
 
 | Rol | Color |
