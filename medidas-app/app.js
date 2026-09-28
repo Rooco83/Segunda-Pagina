@@ -167,8 +167,13 @@ const App = (() => {
       const thumb = blobUlt
         ? `<img class="proj-thumb" src="${urlDe(blobUlt)}" alt="">`
         : `<span class="proj-thumb">${p.nombre.charAt(0).toUpperCase()}</span>`;
-      card.innerHTML = `${thumb}<span><b>${escapar(p.nombre)}</b>
-        <small>${fotos.length} foto${fotos.length === 1 ? '' : 's'} · ${fecha(p.creado)}</small></span>
+      const enDrive = !!p.driveFolderId;
+      const badge = enDrive
+        ? '<span class="proj-badge drive">☁️ En tu Drive</span>'
+        : '<span class="proj-badge local">📱 Solo en este teléfono</span>';
+      card.innerHTML = `${thumb}<span class="proj-info"><b>${escapar(p.nombre)}</b>
+        <small>${fotos.length} foto${fotos.length === 1 ? '' : 's'} · ${fecha(p.creado)}</small>
+        ${badge}</span>
         <span class="chev">›</span>`;
       instalarLongPress(card, () => abrirProyecto(p.id), () => menuProyecto(p));
       cont.appendChild(card);
@@ -366,17 +371,80 @@ const App = (() => {
     else if (projVisible && proyectoActual) abrirProyecto(proyectoActual.id);
   }
 
+  /* ══════════ novedades / historial de versiones ══════════ */
+  const NOVEDADES = [
+    { v: '3', titulo: 'Horizontal, girar imagen y valores más fáciles', fecha: 'Septiembre 2026', items: [
+      'La app ahora gira con el teléfono: podés editar en horizontal, con las herramientas al costado y la foto más grande.',
+      'Botón para girar la imagen 90° en el editor: si la sacaste de costado, la enderezás cuando quieras.',
+      'El valor de la cota se escribe en un recuadro de la barra: lo tocás y ponés la medida. La cajita sobre la foto ahora es solo para moverla (manteniéndola presionada).',
+      'Cada proyecto muestra si está guardado «en tu Drive» o «solo en este teléfono».'
+    ] },
+    { v: '2', titulo: 'Más rápida y sin volver a iniciar sesión', fecha: 'Agosto 2026', items: [
+      'Se arregló que algunas fotos salieran en negro al sacarlas o importarlas.',
+      'Sacar e importar fotos es más rápido (ya no queda unos segundos en negro).',
+      'La sesión se guarda: no te pide iniciar sesión cada vez que abrís la app.',
+      'La app se actualiza sola: con el mismo link, siempre tenés la última versión.'
+    ] },
+    { v: '1', titulo: 'Cotas Venue 1.0 — la base', fecha: '2026', items: [
+      'Sacá o importá fotos organizadas por proyecto.',
+      'Marcales cotas, flechas, curvas, ángulos, textos, marcos y óvalos.',
+      'Elegí color, unidad (m, cm, mm), grosor de línea y tamaño del texto.',
+      'Guardá el JPG final y subilo a tu propio Drive, ordenado por proyecto.'
+    ] }
+  ];
+  const NOV_VER = NOVEDADES[0].v;
+
+  function renderNovedades() {
+    $('nov-cuerpo').innerHTML = NOVEDADES.map(n => `
+      <div class="card nov-item">
+        <div class="nov-cab"><b>${escapar(n.titulo)}</b><small>${escapar(n.fecha)}</small></div>
+        <ul>${n.items.map(i => `<li>${escapar(i)}</li>`).join('')}</ul>
+      </div>`).join('');
+  }
+  function abrirNovedades() {
+    renderNovedades();
+    try { localStorage.setItem('cv-novedades-visto', NOV_VER); } catch {}
+    mostrar('scr-novedades');
+  }
+  async function avisarNovedades() {
+    const r = await mostrarDialogo({
+      titulo: '✨ Novedades',
+      mensaje: 'Actualizamos la app con varias mejoras. ¿Querés ver qué cambió? (después lo tenés siempre en Ajustes).',
+      input: false, okTxt: 'Ver novedades'
+    });
+    try { localStorage.setItem('cv-novedades-visto', NOV_VER); } catch {}
+    if (r.ok) abrirNovedades();
+  }
+  /* aviso una sola vez por versión: se muestra hasta que la persona lo ve */
+  function chequearNovedades() {
+    try {
+      if (localStorage.getItem('cv-novedades-visto') !== NOV_VER) setTimeout(avisarNovedades, 900);
+    } catch {}
+  }
+
   /* ══════════ wiring ══════════ */
   function init() {
     $('btn-nuevo-proj').addEventListener('click', async () => {
       const nombre = await dialogo('Nombre del nuevo proyecto', '', 'ej: Casa Belgrano — Deck');
       if (!nombre) return;
       const p = await DB.crearProyecto(nombre);
+      // Aviso (una sola vez): sin sesión el proyecto queda solo en el teléfono.
+      if (!GAuth.estaLogueado() && !localStorage.getItem('cv-aviso-local')) {
+        localStorage.setItem('cv-aviso-local', '1');
+        const r = await mostrarDialogo({
+          titulo: 'Proyecto guardado en este teléfono 📱',
+          mensaje: 'Podés trabajar igual. Pero para respaldarlo en tu Drive y no perderlo si cambiás de teléfono, iniciá sesión con Google. Cuando entres, se sube solo.',
+          input: false, okTxt: 'Entrar con Google'
+        });
+        if (r.ok) { entrarGoogle(); return; }
+      }
       abrirProyecto(p.id);
     });
 
     $('btn-ajustes').addEventListener('click', () => { pintarAjustes(); mostrar('scr-ajustes'); });
     $('btn-aj-volver').addEventListener('click', irHome);
+    $('aj-novedades').addEventListener('click', abrirNovedades);
+    $('btn-nov-volver').addEventListener('click', () => { pintarAjustes(); mostrar('scr-ajustes'); });
     $('btn-proj-volver').addEventListener('click', irHome);
 
     $('btn-proj-menu').addEventListener('click', () => {
@@ -441,6 +509,7 @@ const App = (() => {
     irHome();
     refrescarSesion();
     mostrarVersion();
+    chequearNovedades();
     GAuth.init().then(() => {
       refrescarSesion();
       if (GAuth.estaLogueado()) sincronizarYRefrescar();
