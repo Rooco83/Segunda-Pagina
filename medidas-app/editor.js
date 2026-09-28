@@ -552,7 +552,7 @@ const Editor = (() => {
 
   /* la cajita del valor se movió con mantener-presionado: acá se "arma" */
   function armarEtiqueta(a) {
-    if (!arrastre || modo !== 'etiqueta' || arrastre.movio) return;
+    if (!arrastre || modo !== 'etiqueta') return;
     arrastre.armado = true;
     etiquetaArmada = a;
     if (navigator.vibrate) { try { navigator.vibrate(18); } catch {} }
@@ -662,8 +662,15 @@ const Editor = (() => {
       arrastre.ult = p;
       render();
     } else if (modo === 'etiqueta') {
-      // sin mantener presionado, NO se mueve (se cancela el temporizador de armado)
-      if (!arrastre.armado) { clearTimeout(lpTimer); return; }
+      if (!arrastre.armado) {
+        // Todavía no se "armó" (mantener presionado). Un temblorcito del dedo NO
+        // debe cancelar el armado; solo lo cancela un arrastre claro (>18px), que
+        // significa que no querías mantener. Mientras tanto seguimos el dedo.
+        const lejos = Math.hypot(ev.clientX - arrastre.sx, ev.clientY - arrastre.sy) > 18;
+        if (lejos) clearTimeout(lpTimer);
+        else arrastre.ult = punto(ev);
+        return;
+      }
       const p = punto(ev);
       const a = annos[arrastre.hit];
       const mdx = p.x - arrastre.ult.x, mdy = p.y - arrastre.ult.y;
