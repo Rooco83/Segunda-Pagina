@@ -116,6 +116,7 @@ const DB = (() => {
         id: datos.id || uid(), proyectoId, creado: datos.creado || Date.now(),
         blobOriginal: null, proxy: null, thumb: null, blobFinal: null,
         anotaciones: datos.anotaciones || [],
+        rot: datos.rot || 0,
         n: datos.n || 0,
         driveFileId: datos.driveFileId || null,   // JPG final en Drive
         driveOrigId: datos.driveOrigId || null,   // original sin anotar en .datos

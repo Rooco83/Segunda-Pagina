@@ -17,6 +17,8 @@ const Editor = (() => {
   let foto = null, proyecto = null;
   let img = null, imgURL = '', W = 0, H = 0, base = 0;
   let origSesion = null;   // original a máxima resolución para exportar (no se persiste)
+  let rotActual = 0;       // giro manual de la imagen: 0/90/180/270
+  let proxyRaw = null;     // proxy SIN girar (para regenerar la vista girada sin perder calidad)
   let annos = [], sel = -1;
   let vista = { x: 0, y: 0, w: 100, h: 100 };
   let historia = [], futuro = [];
@@ -355,6 +357,16 @@ const Editor = (() => {
     const esLinea = seleccion && (seleccion.t === 'cota' || seleccion.t === 'flecha');
     $('ed-contexto').classList.toggle('oculto', !esLinea);
     $('ctx-eje').classList.toggle('activo', !!(esLinea && seleccion.lock));
+
+    // recuadro del VALOR en la barra: con cota o ángulo seleccionado, se toca y
+    // se escribe la medida (separado de mover la cajita sobre la foto).
+    const conValor = seleccion && (seleccion.t === 'cota' || seleccion.t === 'angulo');
+    const vb = $('ed-valor');
+    vb.classList.toggle('oculto', !conValor);
+    if (conValor) {
+      $('ed-valor-txt').textContent =
+        seleccion.t === 'cota' ? etiquetaCota(seleccion) : etiquetaAngulo(seleccion);
+    }
   }
 
   /* gira la cota/flecha seleccionada 90° alrededor de su centro */
@@ -376,6 +388,54 @@ const Editor = (() => {
     const a = annos[sel];
     if (a.t !== 'cota' && a.t !== 'flecha') return;
     a.lock = !a.lock;
+    guardarBorrador();
+    render();
+  }
+
+  /* ══════════ girar la IMAGEN 90° (toda la foto + sus cotas) ══════════ */
+  /* devuelve un blob girado `deg` grados (0/90/180/270) desde el proxy crudo */
+  async function blobRotado(blob, deg) {
+    deg = ((deg % 360) + 360) % 360;
+    if (!deg || !blob) return blob;
+    const r = await cargarImg(blob);
+    const w = r.im.naturalWidth, h = r.im.naturalHeight;
+    const swap = (deg === 90 || deg === 270);
+    const cv = document.createElement('canvas');
+    cv.width = swap ? h : w; cv.height = swap ? w : h;
+    const ctx = cv.getContext('2d');
+    ctx.translate(cv.width / 2, cv.height / 2);
+    ctx.rotate(deg * Math.PI / 180);
+    ctx.drawImage(r.im, -w / 2, -h / 2);
+    URL.revokeObjectURL(r.u);
+    return await new Promise(res => cv.toBlob(res, 'image/jpeg', 0.85)) || blob;
+  }
+
+  /* transforma una anotación 90° horario en un lienzo de W0×H0 → H0×W0 */
+  function rotarAnno90(a, W0, H0) {
+    const R = (x, y) => ({ x: H0 - y, y: x });
+    const mover = (kx, ky) => { if (a[kx] != null && a[ky] != null) { const p = R(a[kx], a[ky]); a[kx] = p.x; a[ky] = p.y; } };
+    mover('x1', 'y1'); mover('x2', 'y2'); mover('xv', 'yv'); mover('cx', 'cy');
+    if (a.t === 'texto') mover('x', 'y');
+    // offsets de etiqueta absolutos (ángulo): rotar como vector (sin traslación)
+    if (a.lox != null || a.loy != null) { const nx = -(a.loy || 0), ny = (a.lox || 0); a.lox = nx; a.loy = ny; }
+    // lt/ln de la cota son relativos a su propia dirección → ya giran con la cota
+  }
+
+  async function rotarImagen() {
+    if (!proxyRaw) return;
+    pushHist(snap());
+    const W0 = W, H0 = H;
+    annos.forEach(a => rotarAnno90(a, W0, H0));
+    rotActual = (rotActual + 90) % 360;
+    if (foto) foto.rot = rotActual;
+    const disp = await blobRotado(proxyRaw, rotActual);
+    if (imgURL) URL.revokeObjectURL(imgURL);
+    imgURL = URL.createObjectURL(disp);
+    img = new Image();
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = imgURL; });
+    W = img.naturalWidth; H = img.naturalHeight; base = Math.max(W, H);
+    vista = { x: 0, y: 0, w: W, h: H };
+    sel = -1;
     guardarBorrador();
     render();
   }
@@ -785,7 +845,8 @@ const Editor = (() => {
     const fullRes = (foto && foto.blobOriginal) || origSesion;
     if (fullRes) {
       try {
-        const r = await cargarImg(fullRes);
+        const rotBlob = rotActual ? await blobRotado(fullRes, rotActual) : fullRes;
+        const r = await cargarImg(rotBlob);
         bg = r.im; urlTmp = r.u;
         bw = r.im.naturalWidth; bh = r.im.naturalHeight;
       } catch {}
@@ -895,8 +956,13 @@ const Editor = (() => {
     }
     if (!fuente) { App.toast('No se pudo abrir la foto'); return; }
 
+    // giro manual guardado: mostramos el proxy girado (las cotas ya están en ese espacio)
+    proxyRaw = fuente;
+    rotActual = foto.rot || 0;
+    const fuenteMostrar = rotActual ? await blobRotado(fuente, rotActual) : fuente;
+
     if (imgURL) URL.revokeObjectURL(imgURL);
-    imgURL = URL.createObjectURL(fuente);
+    imgURL = URL.createObjectURL(fuenteMostrar);
     img = new Image();
     await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = imgURL; });
     W = img.naturalWidth; H = img.naturalHeight; base = Math.max(W, H);
@@ -909,6 +975,7 @@ const Editor = (() => {
   function cerrar() {
     clearTimeout(lpTimer);
     etiquetaArmada = null; arrastre = null; modo = null;
+    rotActual = 0; proxyRaw = null;
     if (imgURL) { URL.revokeObjectURL(imgURL); imgURL = ''; }
     svg().innerHTML = '';
     foto = null; img = null; annos = []; origSesion = null;
@@ -964,6 +1031,12 @@ const Editor = (() => {
 
     $('ctx-rotar').addEventListener('click', rotarSel);
     $('ctx-eje').addEventListener('click', toggleEje);
+    $('ed-rotimg').addEventListener('click', () => { rotarImagen(); });
+    $('ed-valor').addEventListener('click', () => {
+      if (sel >= 0 && annos[sel] && (annos[sel].t === 'cota' || annos[sel].t === 'angulo')) {
+        editarContenido(annos[sel]);
+      }
+    });
     $('ed-undo').addEventListener('click', undo);
     $('ed-redo').addEventListener('click', redo);
     $('ed-borrar').addEventListener('click', () => {

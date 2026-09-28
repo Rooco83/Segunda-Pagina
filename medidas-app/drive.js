@@ -192,6 +192,7 @@ const Drive = (() => {
         meta.fotos.push({
           id: f.id, n: f.n || 0, creado: f.creado,
           anotaciones: f.anotaciones || [],
+          rot: f.rot || 0,
           driveFileId: f.driveFileId || null,
           driveOrigId: f.driveOrigId || null,
           thumbB64: f.thumb ? await DB.blobABase64(f.thumb) : null

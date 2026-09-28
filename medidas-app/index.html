@@ -163,6 +163,7 @@
       <button class="icon-btn blanco" id="ed-dup" aria-label="Duplicar anotación"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button>
       <button class="icon-btn blanco" id="ed-borrar" aria-label="Borrar anotación"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button>
       <button class="icon-btn blanco" id="ed-compartir" aria-label="Compartir"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8 11l8-4M8 13l8 4"/></svg></button>
+      <button class="icon-btn blanco" id="ed-rotimg" aria-label="Girar la imagen 90°"><svg viewBox="0 0 24 24"><rect x="3" y="9" width="12" height="12" rx="2"/><path d="M15 5a5 5 0 0 1 5 5M20 4v3h-3"/></svg></button>
     </div>
     <button id="ed-guardar" class="btn-guardar">Guardar</button>
   </header>
@@ -173,6 +174,10 @@
   </div>
 
   <div class="ed-props" id="ed-props">
+    <button class="ed-valor oculto" id="ed-valor" aria-label="Poner el valor de la cota">
+      <svg viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4zM14 6l4 4"/></svg>
+      <span id="ed-valor-txt">?</span>
+    </button>
     <div class="props-fila fila-color">
       <button class="cdot" data-color="#FFD400" style="background:#FFD400"></button>
       <button class="cdot" data-color="#3DDC84" style="background:#3DDC84"></button>
