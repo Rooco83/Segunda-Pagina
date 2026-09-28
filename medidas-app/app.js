@@ -335,14 +335,16 @@ const App = (() => {
     }
   }
 
-  /* muestra la versión publicada en Ajustes (para saber si el teléfono ya tomó
-     la última al dar soporte: si dice un número, está en la versión nueva) */
+  /* muestra la versión publicada en Ajustes (formato v1.x). Sirve además para
+     saber, al dar soporte, si el teléfono ya tomó la última versión. */
   function mostrarVersion() {
     const el = $('aj-version');
     if (!el) return;
+    const pintar = (bld) => { if (bld) el.textContent = 'Cotas Venue · v1.' + bld; };
+    try { pintar(localStorage.getItem('cv-build')); } catch {}   // se ve aun sin señal
     fetch('version.json?_=' + Date.now(), { cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d && d.build) el.textContent = 'Cotas Venue · v' + d.build; })
+      .then(d => { if (d && d.build) pintar(d.build); })
       .catch(() => {});
   }
 
