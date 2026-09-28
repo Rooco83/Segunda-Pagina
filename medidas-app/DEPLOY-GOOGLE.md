@@ -74,6 +74,19 @@ limpia todo y recarga sola una vez. Así todos ven los cambios enseguida sin ten
 borrar caché ni reinstalar. La versión se marca en `medidas-app/version.json` (y se
 sube junto con cada cambio de código).
 
+## Cómo numeramos las versiones (v MAYOR.MENOR.PARCHE)
+El número que ve la gente en **Ajustes** (ej: `v1.13.1`) sigue este criterio:
+- **MAYOR** (1 → 2): un cambio **grande** — funcionalidades importantes nuevas o un
+  rediseño estético fuerte.
+- **MENOR** (1.12 → 1.13): cambios **chicos** (mejoras, ajustes de una función).
+- **PARCHE** (1.13 → 1.13.1): un **detalle** o arreglo más chico todavía.
+
+En `medidas-app/version.json` hay dos campos:
+- `version`: el número que ve la gente (ej: `"1.13.1"`) — se sube según el criterio de
+  arriba.
+- `build`: un contador interno que **sube siempre +1 en cada publicación** (ej: `"14"`).
+  Es lo que dispara la auto-actualización; no se muestra.
+
 ## ¿Y el código?
 El código puede seguir donde está; lo que importa es que la **app publicada** vive
 en el Firebase de la empresa. Si más adelante querés que el **código** también esté

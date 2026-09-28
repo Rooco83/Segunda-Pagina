@@ -335,16 +335,20 @@ const App = (() => {
     }
   }
 
-  /* muestra la versión publicada en Ajustes (formato v1.x). Sirve además para
-     saber, al dar soporte, si el teléfono ya tomó la última versión. */
+  /* muestra la versión publicada en Ajustes (formato v1.x.y que ve la gente).
+     Es distinta del "build" interno, que solo sirve para la auto-actualización. */
   function mostrarVersion() {
     const el = $('aj-version');
     if (!el) return;
-    const pintar = (bld) => { if (bld) el.textContent = 'Cotas Venue · v1.' + bld; };
-    try { pintar(localStorage.getItem('cv-build')); } catch {}   // se ve aun sin señal
+    const pintar = (v) => { if (v) el.textContent = 'Cotas Venue · v' + v; };
+    try { pintar(localStorage.getItem('cv-version')); } catch {}   // se ve aun sin señal
     fetch('version.json?_=' + Date.now(), { cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d && d.build) pintar(d.build); })
+      .then(d => {
+        if (!d) return;
+        const v = d.version || (d.build ? '1.' + d.build : null);
+        if (v) { pintar(v); try { localStorage.setItem('cv-version', v); } catch {} }
+      })
       .catch(() => {});
   }
 
