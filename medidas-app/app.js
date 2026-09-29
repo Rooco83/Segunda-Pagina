@@ -438,13 +438,15 @@ const App = (() => {
 
   /* ══════════ novedades / historial de versiones ══════════ */
   const NOVEDADES = [
-    { v: '4', titulo: 'Cámara del teléfono e interfaz renovada', fecha: 'Septiembre 2026', items: [
-      'Ahora al sacar la foto se abre la cámara propia de tu teléfono, con toda su calidad y opciones. Sacás la foto ahí y vuelve sola a la app.',
-      'Se respeta la foto tal cual la sacaste: ya no se recorta ni se achica de más.',
-      'El modo horizontal se rediseñó: la foto ocupa casi toda la pantalla, con las acciones flotando arriba y las opciones en una tira fina. Más lugar para trabajar.',
-      'Interfaz más compacta y prolija: herramientas arriba, botones más chicos, y Girar/Fijar eje como botones de ícono.',
+    { v: '5', titulo: 'Interfaz más prolija y fotos con selección', fecha: 'Septiembre 2026', items: [
+      'Interfaz más compacta: herramientas arriba, botones más chicos, y las opciones de la cota en dos filas. Girar/Fijar eje quedaron como botones de ícono.',
       'La cajita del valor se conecta con una línea fina anclada al medio de la cota, y la podés mover a donde quieras sin que quede desprolijo.',
       'En un proyecto, tocás una foto para seleccionarla (tilde verde) y aparecen 4 botones: Editar, Compartir, Descargar y Eliminar. Sin el menú del teléfono.'
+    ] },
+    { v: '4', titulo: 'Cámara del teléfono, sin recortes', fecha: 'Septiembre 2026', items: [
+      'Ahora al sacar la foto se abre la cámara propia de tu teléfono, con toda su calidad y opciones. Sacás la foto ahí y vuelve sola a la app.',
+      'Se respeta la foto tal cual la sacaste: ya no se recorta ni se achica de más.',
+      'El modo horizontal se rediseñó: la foto ocupa casi toda la pantalla, con las acciones flotando arriba y las opciones en una tira fina. Más lugar para trabajar.'
     ] },
     { v: '3', titulo: 'Horizontal, girar imagen y valores más fáciles', fecha: 'Septiembre 2026', items: [
       'La app ahora gira con el teléfono: podés editar en horizontal, con las herramientas al costado y la foto más grande.',
