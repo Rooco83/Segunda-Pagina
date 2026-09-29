@@ -103,26 +103,22 @@ const Editor = (() => {
   }
 
   /* posición y caja de la etiqueta de una anotación (para hit-test y dibujo).
-     ax,ay = ancla natural; cx,cy = posición final (ancla + corrimiento manual lox/loy) */
+     ax,ay = ancla (para la cota: SIEMPRE el medio); cx,cy = posición de la caja. */
   const etiquetaMovida = a =>
-    (a.t === 'cota' && (a.lt != null || a.ln != null)) ||
-    (a.t === 'angulo' && (a.lox || a.loy));
+    ((a.t === 'cota' || a.t === 'angulo') && (a.lox != null || a.loy != null));
 
   function cajaEtiqueta(a) {
     let txt = null, cx, cy, ax, ay;
     const fpx = fontPx(a);
     if (a.t === 'cota') {
       txt = etiquetaCota(a);
-      // posición GUARDADA relativa a la cota (a lo largo lt, perpendicular ln),
-      // así mantiene la distancia aunque muevas o gires la cota.
+      // El ancla es SIEMPRE el medio de la cota. La caja se mueve libre (lox,loy)
+      // y una línea fina la conecta con ese medio. Por defecto queda justo arriba.
       const mx = (a.x1 + a.x2) / 2, my = (a.y1 + a.y2) / 2;
-      const len = Math.hypot(a.x2 - a.x1, a.y2 - a.y1) || 1;
-      const dx = (a.x2 - a.x1) / len, dy = (a.y2 - a.y1) / len;
-      const nx = -dy, ny = dx;
-      const lt = a.lt || 0;
-      const ln = (a.ln != null) ? a.ln : fpx * 1.1;
-      ax = mx + dx * lt; ay = my + dy * lt;      // pie sobre la cota
-      cx = ax + nx * ln; cy = ay + ny * ln;      // etiqueta a distancia ln
+      ax = mx; ay = my;
+      const lox = (a.lox != null) ? a.lox : 0;
+      const loy = (a.loy != null) ? a.loy : -(fpx * 1.3);
+      cx = mx + lox; cy = my + loy;
     } else if (a.t === 'angulo') {
       txt = etiquetaAngulo(a);
       const i = anguloInfo(a);
@@ -140,14 +136,14 @@ const Editor = (() => {
     return { txt, cx, cy, ax, ay, w, h, fpx };
   }
 
-  /* guía desde la anotación hasta la etiqueta cuando se la corrió de lugar:
-     línea sólida + puntito en la cota, para que se vea bien a cuál pertenece */
+  /* conector fino y prolijo desde el MEDIO de la cota hasta la caja del valor,
+     con un puntito en el ancla, para que se vea claro a qué cota pertenece. */
   function guiaEtiquetaSVG(a) {
     if (!etiquetaMovida(a)) return '';
     const c = cajaEtiqueta(a);
     return `<line x1="${c.ax}" y1="${c.ay}" x2="${c.cx}" y2="${c.cy}" stroke="${a.color}"
-      stroke-width="${strokePx(a) * 0.6}" opacity=".9"/>
-      <circle cx="${c.ax}" cy="${c.ay}" r="${strokePx(a) * 1.4}" fill="${a.color}"/>`;
+      stroke-width="${strokePx(a) * 0.42}" opacity=".92" stroke-linecap="round"/>
+      <circle cx="${c.ax}" cy="${c.ay}" r="${strokePx(a) * 1.05}" fill="${a.color}"/>`;
   }
 
   /* ══════════════ dibujo SVG ══════════════ */
@@ -675,11 +671,10 @@ const Editor = (() => {
       const a = annos[arrastre.hit];
       const mdx = p.x - arrastre.ult.x, mdy = p.y - arrastre.ult.y;
       if (a.t === 'cota') {
-        // el movimiento se guarda en el marco de la cota (a lo largo / perpendicular)
-        const len = Math.hypot(a.x2 - a.x1, a.y2 - a.y1) || 1;
-        const dx = (a.x2 - a.x1) / len, dy = (a.y2 - a.y1) / len;
-        a.lt = (a.lt || 0) + (mdx * dx + mdy * dy);
-        a.ln = ((a.ln != null) ? a.ln : fontPx(a) * 1.1) + (mdx * -dy + mdy * dx);
+        // la caja se mueve LIBRE (offset desde el medio de la cota). Si es la
+        // primera vez, arrancamos desde la posición por defecto (justo arriba).
+        if (a.lox == null) { a.lox = 0; a.loy = -(fontPx(a) * 1.3); }
+        a.lox += mdx; a.loy += mdy;
       } else {
         a.lox = (a.lox || 0) + mdx;
         a.loy = (a.loy || 0) + mdy;
@@ -760,14 +755,15 @@ const Editor = (() => {
     const c = cajaEtiqueta(a);
     ctx.save();
     ctx.strokeStyle = a.color; ctx.fillStyle = a.color;
-    ctx.lineWidth = strokePx(a) * 0.6;
-    ctx.globalAlpha = 0.9;
+    ctx.lineWidth = strokePx(a) * 0.42;
+    ctx.lineCap = 'round';
+    ctx.globalAlpha = 0.92;
     ctx.beginPath();
     ctx.moveTo(c.ax, c.ay); ctx.lineTo(c.cx, c.cy);
     ctx.stroke();
     ctx.globalAlpha = 1;
     ctx.beginPath();
-    ctx.arc(c.ax, c.ay, strokePx(a) * 1.4, 0, 2 * Math.PI);
+    ctx.arc(c.ax, c.ay, strokePx(a) * 1.05, 0, 2 * Math.PI);
     ctx.fill();
     ctx.restore();
   }

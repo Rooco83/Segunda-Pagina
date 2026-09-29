@@ -251,13 +251,15 @@ img.proj-thumb{display:block;}
 .tbtn.grande{font-size:15px;}
 .tbtn .i{width:20px;height:20px;}
 .tbtn.sel{background:var(--naranja);color:#fff;}
-.stepper{display:inline-flex;gap:6px;flex-shrink:0;}
+.stepper{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;}
+.steplbl{color:#8fa2af;font-size:12px;font-weight:800;margin-right:1px;}
+.stepper .tbtn{font-size:17px;font-weight:800;padding:3px 10px;min-width:34px;justify-content:center;}
 .ed-contexto{display:flex;justify-content:center;gap:8px;padding:0 8px 5px;flex-shrink:0;}
 .ctx-btn{
-  display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.09);
-  color:#dbe2e8;font-size:11.5px;font-weight:700;padding:7px 12px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.09);
+  color:#dbe2e8;width:38px;height:38px;border-radius:11px;
 }
-.ctx-btn svg{width:15px;height:15px;}
+.ctx-btn svg{width:20px;height:20px;}
 .ctx-btn:active{transform:scale(.97);}
 .ctx-btn.activo{background:var(--naranja);color:#fff;}
 .ed-tools{
@@ -272,12 +274,23 @@ img.proj-thumb{display:block;}
 .tool.activo{color:var(--naranja);}
 .tool:active{background:rgba(255,255,255,.08);}
 
-/* ═══ EDITOR EN HORIZONTAL: herramientas en riel a la izquierda, foto al máximo ═══ */
+/* ═══ EDITOR EN VERTICAL: herramientas ARRIBA (bajo las acciones), foto, y las
+       propiedades ABAJO de todo ═══ */
+@media (orientation:portrait){
+  #scr-editor>.ed-top{order:0;}
+  #scr-editor>.ed-tools{order:1;padding:4px 4px 7px;border-bottom:1px solid rgba(255,255,255,.07);}
+  #scr-editor>.ed-stage{order:2;}
+  #scr-editor>.ed-contexto{order:3;}
+  #scr-editor>.ed-props{order:4;padding-bottom:calc(6px + env(safe-area-inset-bottom));}
+}
+
+/* ═══ EDITOR EN HORIZONTAL: herramientas + Girar/eje en un riel a la izquierda,
+       foto al máximo, propiedades en una tira compacta abajo ═══ */
 @media (orientation:landscape){
   #scr-editor{
     display:grid;
     grid-template-columns:50px 1fr;
-    grid-template-rows:1fr auto auto;
+    grid-template-rows:1fr auto;
   }
   /* acciones FLOTANTES arriba (sobre la foto, como la cámara): no roban altura */
   #scr-editor>.ed-top{
@@ -289,18 +302,23 @@ img.proj-thumb{display:block;}
   /* propiedades en UNA sola tira compacta */
   #scr-editor>.ed-props{
     grid-column:2;grid-row:2;flex-direction:row;flex-wrap:wrap;justify-content:center;
-    align-items:center;padding:5px 8px;gap:6px;
+    align-items:center;padding:5px 8px calc(4px + env(safe-area-inset-bottom));gap:6px;
   }
   #scr-editor>.ed-props .props-fila{gap:7px;}
-  #scr-editor>.ed-contexto{grid-column:2;grid-row:3;padding:0 8px calc(6px + env(safe-area-inset-bottom));}
   #scr-editor>.ed-tools{
-    grid-column:1;grid-row:1 / 4;flex-direction:column;justify-content:flex-start;
+    grid-column:1;grid-row:1;flex-direction:column;justify-content:flex-start;
     gap:2px;overflow-y:auto;background:rgba(0,0,0,.28);
-    padding:calc(4px + env(safe-area-inset-top)) 2px calc(5px + env(safe-area-inset-bottom));
+    padding:calc(4px + env(safe-area-inset-top)) 2px 4px;
     padding-left:calc(2px + env(safe-area-inset-left));
   }
   #scr-editor>.ed-tools .tool{width:46px;min-width:0;font-size:8px;padding:6px 1px;gap:2px;}
   #scr-editor>.ed-tools .tool svg{width:20px;height:20px;}
+  /* Girar/eje al COSTADO (abajo del riel), no abajo de la foto */
+  #scr-editor>.ed-contexto{
+    grid-column:1;grid-row:2;flex-direction:column;gap:5px;align-items:center;
+    background:rgba(0,0,0,.28);padding:5px 2px calc(6px + env(safe-area-inset-bottom));
+    padding-left:calc(2px + env(safe-area-inset-left));
+  }
 }
 
 /* ═══════════ Ajustes ═══════════ */
