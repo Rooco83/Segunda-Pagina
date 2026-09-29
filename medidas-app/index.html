@@ -174,21 +174,11 @@
   </div>
 
   <div class="ed-props" id="ed-props">
-    <button class="ed-valor oculto" id="ed-valor" aria-label="Poner el valor de la cota">
-      <svg viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4zM14 6l4 4"/></svg>
-      <span id="ed-valor-txt">?</span>
-    </button>
-    <div class="props-fila fila-color">
-      <button class="cdot" data-color="#FFD400" style="background:#FFD400"></button>
-      <button class="cdot" data-color="#3DDC84" style="background:#3DDC84"></button>
-      <button class="cdot" data-color="#FF5252" style="background:#FF5252"></button>
-      <button class="cdot" data-color="#FFFFFF" style="background:#fff"></button>
-      <button class="cdot" data-color="#37C8F0" style="background:#37C8F0"></button>
-      <button class="cdot" data-color="#00263E" style="background:#00263E"></button>
-      <span class="sep"></span>
-      <button class="tbtn" id="ed-grosor" title="Grosor de línea"><svg viewBox="0 0 24 24" class="i"><path d="M4 6h16" stroke-width="1"/><path d="M4 12h16" stroke-width="2.5"/><path d="M4 18h16" stroke-width="4"/></svg></button>
-    </div>
     <div class="props-fila fila-medida">
+      <button class="ed-valor oculto" id="ed-valor" aria-label="Poner el valor de la cota">
+        <svg viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4zM14 6l4 4"/></svg>
+        <span id="ed-valor-txt">?</span>
+      </button>
       <button class="unidad" data-u="m">m</button>
       <button class="unidad" data-u="cm">cm</button>
       <button class="unidad" data-u="mm">mm</button>
@@ -199,15 +189,23 @@
         <button class="tbtn" id="ed-txt-mas" aria-label="Agrandar texto">+</button>
       </span>
     </div>
-  </div>
-
-  <div class="ed-contexto oculto" id="ed-contexto">
-    <button class="ctx-btn" id="ctx-rotar" aria-label="Girar la cota 90°" title="Girar 90°">
-      <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 6.6M20 5v6h-6"/></svg>
-    </button>
-    <button class="ctx-btn" id="ctx-eje" aria-label="Fijar eje" title="Fijar eje">
-      <svg viewBox="0 0 24 24"><path d="M12 3v18M8.5 6.5L12 3l3.5 3.5M8.5 17.5L12 21l3.5-3.5"/></svg>
-    </button>
+    <div class="props-fila fila-estilo">
+      <button class="cdot" data-color="#FFD400" style="background:#FFD400"></button>
+      <button class="cdot" data-color="#3DDC84" style="background:#3DDC84"></button>
+      <button class="cdot" data-color="#FF5252" style="background:#FF5252"></button>
+      <button class="cdot" data-color="#FFFFFF" style="background:#fff"></button>
+      <button class="cdot" data-color="#37C8F0" style="background:#37C8F0"></button>
+      <button class="cdot" data-color="#00263E" style="background:#00263E"></button>
+      <span class="sep"></span>
+      <button class="tbtn" id="ed-grosor" title="Grosor de línea"><svg viewBox="0 0 24 24" class="i"><path d="M4 6h16" stroke-width="1"/><path d="M4 12h16" stroke-width="2.5"/><path d="M4 18h16" stroke-width="4"/></svg></button>
+      <span class="sep" id="sep-ctx"></span>
+      <button class="ctx-btn oculto" id="ctx-rotar" aria-label="Girar la cota 90°" title="Girar 90°">
+        <svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 6.6M20 5v6h-6"/></svg>
+      </button>
+      <button class="ctx-btn oculto" id="ctx-eje" aria-label="Fijar eje" title="Fijar eje">
+        <svg viewBox="0 0 24 24"><path d="M12 3v18M8.5 6.5L12 3l3.5 3.5M8.5 17.5L12 21l3.5-3.5"/></svg>
+      </button>
+    </div>
   </div>
 
   <nav class="ed-tools">

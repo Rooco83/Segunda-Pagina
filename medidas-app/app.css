@@ -224,17 +224,20 @@ img.proj-thumb{display:block;}
   overflow:hidden;pointer-events:none;z-index:5;background:#000;
 }
 .lupa canvas{display:block;}
-.ed-props{flex-shrink:0;padding:8px 6px 3px;display:flex;flex-direction:column;gap:7px;}
+.ed-props{flex-shrink:0;padding:7px 6px 3px;display:flex;flex-direction:column;gap:6px;}
 .ed-valor{
-  align-self:center;display:inline-flex;align-items:center;gap:6px;
-  color:#fff;font-size:13.5px;font-weight:800;padding:6px 12px;border-radius:11px;
-  background:rgba(241,90,36,.18);border:1.5px solid var(--naranja);max-width:88%;
+  display:inline-flex;align-items:center;gap:5px;flex-shrink:0;
+  color:#fff;font-size:13px;font-weight:800;padding:5px 10px;border-radius:10px;
+  background:rgba(241,90,36,.18);border:1.5px solid var(--naranja);
 }
-.ed-valor svg{width:15px;height:15px;stroke:#ffb499;flex-shrink:0;}
-.ed-valor #ed-valor-txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ed-valor svg{width:14px;height:14px;stroke:#ffb499;flex-shrink:0;}
+.ed-valor #ed-valor-txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;}
 .ed-valor:active{transform:scale(.97);}
-.props-fila{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;}
-.props-fila.fila-color{gap:9px;}
+/* cada fila es UNA sola línea (nunca se parte en más); si no entra, se desliza */
+.props-fila{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;}
+.props-fila::-webkit-scrollbar{display:none;}
+.props-fila{scrollbar-width:none;}
+.props-fila.fila-estilo{gap:8px;}
 .props-fila>*{flex-shrink:0;}
 .cdot{width:25px;height:25px;border-radius:50%;border:2px solid transparent;}
 .cdot.sel{border-color:#fff;box-shadow:0 0 0 2.5px rgba(241,90,36,.55);}
@@ -248,18 +251,17 @@ img.proj-thumb{display:block;}
   color:#dbe2e8;font-size:13px;font-weight:800;padding:6px 9px;border-radius:10px;
   background:rgba(255,255,255,.07);display:flex;align-items:center;
 }
-.tbtn.grande{font-size:15px;}
 .tbtn .i{width:20px;height:20px;}
 .tbtn.sel{background:var(--naranja);color:#fff;}
 .stepper{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;}
 .steplbl{color:#8fa2af;font-size:12px;font-weight:800;margin-right:1px;}
-.stepper .tbtn{font-size:17px;font-weight:800;padding:3px 10px;min-width:34px;justify-content:center;}
-.ed-contexto{display:flex;justify-content:center;gap:8px;padding:0 8px 5px;flex-shrink:0;}
+.stepper .tbtn{font-size:17px;font-weight:800;padding:3px 9px;min-width:32px;justify-content:center;}
+/* Girar / Fijar eje: botones solo-ícono, integrados en las opciones de la cota */
 .ctx-btn{
   display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.09);
-  color:#dbe2e8;width:38px;height:38px;border-radius:11px;
+  color:#dbe2e8;width:34px;height:34px;border-radius:10px;
 }
-.ctx-btn svg{width:20px;height:20px;}
+.ctx-btn svg{width:19px;height:19px;}
 .ctx-btn:active{transform:scale(.97);}
 .ctx-btn.activo{background:var(--naranja);color:#fff;}
 .ed-tools{
@@ -280,8 +282,7 @@ img.proj-thumb{display:block;}
   #scr-editor>.ed-top{order:0;}
   #scr-editor>.ed-tools{order:1;padding:4px 4px 7px;border-bottom:1px solid rgba(255,255,255,.07);}
   #scr-editor>.ed-stage{order:2;}
-  #scr-editor>.ed-contexto{order:3;}
-  #scr-editor>.ed-props{order:4;padding-bottom:calc(6px + env(safe-area-inset-bottom));}
+  #scr-editor>.ed-props{order:3;padding-bottom:calc(6px + env(safe-area-inset-bottom));}
 }
 
 /* ═══ EDITOR EN HORIZONTAL: herramientas + Girar/eje en un riel a la izquierda,
@@ -306,19 +307,13 @@ img.proj-thumb{display:block;}
   }
   #scr-editor>.ed-props .props-fila{gap:7px;}
   #scr-editor>.ed-tools{
-    grid-column:1;grid-row:1;flex-direction:column;justify-content:flex-start;
+    grid-column:1;grid-row:1 / 3;flex-direction:column;justify-content:flex-start;
     gap:2px;overflow-y:auto;background:rgba(0,0,0,.28);
-    padding:calc(4px + env(safe-area-inset-top)) 2px 4px;
+    padding:calc(4px + env(safe-area-inset-top)) 2px calc(5px + env(safe-area-inset-bottom));
     padding-left:calc(2px + env(safe-area-inset-left));
   }
   #scr-editor>.ed-tools .tool{width:46px;min-width:0;font-size:8px;padding:6px 1px;gap:2px;}
   #scr-editor>.ed-tools .tool svg{width:20px;height:20px;}
-  /* Girar/eje al COSTADO (abajo del riel), no abajo de la foto */
-  #scr-editor>.ed-contexto{
-    grid-column:1;grid-row:2;flex-direction:column;gap:5px;align-items:center;
-    background:rgba(0,0,0,.28);padding:5px 2px calc(6px + env(safe-area-inset-bottom));
-    padding-left:calc(2px + env(safe-area-inset-left));
-  }
 }
 
 /* ═══════════ Ajustes ═══════════ */

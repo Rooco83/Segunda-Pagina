@@ -350,8 +350,11 @@ const Editor = (() => {
 
     // barra contextual (girar / fijar eje): solo para cota o flecha seleccionada
     const seleccion = sel >= 0 ? annos[sel] : null;
+    // Girar / Fijar eje: solo para cota o flecha (van integrados en las opciones)
     const esLinea = seleccion && (seleccion.t === 'cota' || seleccion.t === 'flecha');
-    $('ed-contexto').classList.toggle('oculto', !esLinea);
+    $('ctx-rotar').classList.toggle('oculto', !esLinea);
+    $('ctx-eje').classList.toggle('oculto', !esLinea);
+    $('sep-ctx').classList.toggle('oculto', !esLinea);
     $('ctx-eje').classList.toggle('activo', !!(esLinea && seleccion.lock));
 
     // recuadro del VALOR en la barra: con cota o ángulo seleccionado, se toca y
