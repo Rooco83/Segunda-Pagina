@@ -379,6 +379,11 @@ const App = (() => {
 
   /* ══════════ novedades / historial de versiones ══════════ */
   const NOVEDADES = [
+    { v: '4', titulo: 'Cámara del teléfono y horizontal renovado', fecha: 'Septiembre 2026', items: [
+      'Ahora al sacar la foto se abre la cámara propia de tu teléfono, con toda su calidad y opciones. Sacás la foto ahí y vuelve sola a la app.',
+      'Se respeta la foto tal cual la sacaste: ya no se recorta ni se achica de más.',
+      'El modo horizontal se rediseñó: la foto ocupa casi toda la pantalla, con las acciones flotando arriba y las opciones en una tira fina. Más lugar para trabajar.'
+    ] },
     { v: '3', titulo: 'Horizontal, girar imagen y valores más fáciles', fecha: 'Septiembre 2026', items: [
       'La app ahora gira con el teléfono: podés editar en horizontal, con las herramientas al costado y la foto más grande.',
       'Botón para girar la imagen 90° en el editor: si la sacaste de costado, la enderezás cuando quieras.',

@@ -276,21 +276,31 @@ img.proj-thumb{display:block;}
 @media (orientation:landscape){
   #scr-editor{
     display:grid;
-    grid-template-columns:58px 1fr;
-    grid-template-rows:auto 1fr auto auto;
+    grid-template-columns:50px 1fr;
+    grid-template-rows:1fr auto auto;
   }
-  #scr-editor>.ed-top{grid-column:2;grid-row:1;}
-  #scr-editor>.ed-stage{grid-column:2;grid-row:2;margin:2px 6px;}
-  #scr-editor>.ed-props{grid-column:2;grid-row:3;padding:6px 8px 4px;gap:7px;}
-  #scr-editor>.ed-props .props-fila{gap:8px;}
-  #scr-editor>.ed-contexto{grid-column:2;grid-row:4;padding-bottom:calc(6px + env(safe-area-inset-bottom));}
+  /* acciones FLOTANTES arriba (sobre la foto, como la cámara): no roban altura */
+  #scr-editor>.ed-top{
+    position:absolute;top:env(safe-area-inset-top,0);left:50px;right:0;z-index:6;
+    padding:5px 10px;background:linear-gradient(rgba(4,16,24,.5),transparent);
+  }
+  #scr-editor>.ed-top .icon-btn{background:rgba(7,24,36,.5);}
+  #scr-editor>.ed-stage{grid-column:2;grid-row:1;margin:2px 6px;}
+  /* propiedades en UNA sola tira compacta */
+  #scr-editor>.ed-props{
+    grid-column:2;grid-row:2;flex-direction:row;flex-wrap:wrap;justify-content:center;
+    align-items:center;padding:5px 8px;gap:6px;
+  }
+  #scr-editor>.ed-props .props-fila{gap:7px;}
+  #scr-editor>.ed-contexto{grid-column:2;grid-row:3;padding:0 8px calc(6px + env(safe-area-inset-bottom));}
   #scr-editor>.ed-tools{
-    grid-column:1;grid-row:1 / 5;flex-direction:column;justify-content:flex-start;
-    gap:2px;overflow-y:auto;background:rgba(0,0,0,.22);
-    padding:6px 3px calc(6px + env(safe-area-inset-bottom));padding-left:calc(3px + env(safe-area-inset-left));
+    grid-column:1;grid-row:1 / 4;flex-direction:column;justify-content:flex-start;
+    gap:2px;overflow-y:auto;background:rgba(0,0,0,.28);
+    padding:calc(4px + env(safe-area-inset-top)) 2px calc(5px + env(safe-area-inset-bottom));
+    padding-left:calc(2px + env(safe-area-inset-left));
   }
-  #scr-editor>.ed-tools .tool{width:52px;min-width:0;font-size:9px;padding:7px 2px;gap:3px;}
-  #scr-editor>.ed-tools .tool svg{width:22px;height:22px;}
+  #scr-editor>.ed-tools .tool{width:46px;min-width:0;font-size:8px;padding:6px 1px;gap:2px;}
+  #scr-editor>.ed-tools .tool svg{width:20px;height:20px;}
 }
 
 /* ═══════════ Ajustes ═══════════ */
