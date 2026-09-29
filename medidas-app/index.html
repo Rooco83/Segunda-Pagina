@@ -115,6 +115,22 @@
     <input type="file" id="input-importar" accept="image/*" multiple hidden>
     <input type="file" id="input-captura" accept="image/*" capture="environment" hidden>
   </footer>
+
+  <!-- barra de acciones para la foto seleccionada -->
+  <div id="foto-acciones" class="foto-acc oculto">
+    <button class="acc-btn a-edit" id="acc-editar">
+      <span class="circ"><svg viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4zM14 6l4 4"/></svg></span><span>Editar</span>
+    </button>
+    <button class="acc-btn a-share" id="acc-compartir">
+      <span class="circ"><svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.4"/><circle cx="18" cy="6" r="2.4"/><circle cx="18" cy="18" r="2.4"/><path d="M8 11l8-4M8 13l8 4"/></svg></span><span>Compartir</span>
+    </button>
+    <button class="acc-btn a-dl" id="acc-descargar">
+      <span class="circ"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></span><span>Descargar</span>
+    </button>
+    <button class="acc-btn a-del" id="acc-eliminar">
+      <span class="circ"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></span><span>Eliminar</span>
+    </button>
+  </div>
 </section>
 
 <!-- ═══════════════ CÁMARA PRO ═══════════════ -->

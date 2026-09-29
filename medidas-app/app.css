@@ -116,8 +116,14 @@ img.proj-thumb{display:block;}
   gap:11px;padding:13px;align-content:start;
 }
 .grilla .vacio{grid-column:1/-1;}
-.foto-card{position:relative;border-radius:13px;overflow:hidden;box-shadow:0 4px 12px -5px rgba(0,38,62,.3);aspect-ratio:1;background:#dfe3e7;padding:0;}
-.foto-card img{width:100%;height:100%;object-fit:cover;display:block;}
+.foto-card{position:relative;border-radius:13px;overflow:hidden;box-shadow:0 4px 12px -5px rgba(0,38,62,.3);aspect-ratio:1;background:#dfe3e7;padding:0;
+  -webkit-touch-callout:none;-webkit-user-select:none;user-select:none;}
+.foto-card img{width:100%;height:100%;object-fit:cover;display:block;-webkit-touch-callout:none;pointer-events:none;}
+.foto-card.sel{outline:3px solid var(--naranja);outline-offset:-1px;}
+.fcheck{position:absolute;top:6px;right:6px;width:23px;height:23px;border-radius:50%;background:#22c55e;
+  border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.3);display:none;place-items:center;}
+.fcheck svg{width:12px;height:12px;fill:none;stroke:#fff;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round;}
+.foto-card.sel .fcheck{display:grid;}
 .badge{
   position:absolute;left:8px;bottom:8px;font-size:10px;font-weight:700;
   border-radius:999px;padding:4px 9px;
@@ -132,6 +138,21 @@ img.proj-thumb{display:block;}
 }
 .proj-acciones .btn-navy{flex:1.3;}
 .proj-acciones .btn-ghost{flex:1;}
+/* barra de acciones de la foto seleccionada */
+.foto-acc{
+  position:absolute;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));
+  background:#fff;border-radius:20px;box-shadow:0 12px 30px -10px rgba(0,38,62,.4);
+  padding:11px 8px;display:flex;justify-content:space-around;gap:6px;z-index:8;
+}
+.acc-btn{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;background:none;}
+.acc-btn .circ{width:48px;height:48px;border-radius:15px;display:grid;place-items:center;}
+.acc-btn svg{width:22px;height:22px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.acc-btn span:last-child{font-size:11px;font-weight:700;color:var(--tinta);}
+.acc-btn:active{transform:scale(.96);}
+.a-edit .circ{background:var(--navy);} .a-edit svg{stroke:#fff;}
+.a-share .circ{background:#eaf0f4;} .a-share svg{stroke:var(--navy);}
+.a-dl .circ{background:#eaf0f4;} .a-dl svg{stroke:var(--navy);}
+.a-del .circ{background:#fdeaea;} .a-del svg{stroke:#e5484d;} .a-del span:last-child{color:#e5484d;}
 
 /* ═══════════ Cámara (visor a pantalla completa, controles flotantes) ═══════════ */
 .screen.s-cam{background:#000;color:#fff;padding-top:0;touch-action:none;}

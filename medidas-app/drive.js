@@ -144,6 +144,38 @@ const Drive = (() => {
     return { ok: true };
   }
 
+  /* borra UNA foto del Drive: manda sus archivos a la papelera y reescribe el
+     cotas.json con las fotos que quedan (para que no reaparezca al sincronizar).
+     Se llama DESPUÉS de borrarla localmente. */
+  async function borrarFotoEnDrive(proyecto, foto) {
+    const trash = async (id) => {
+      if (!id) return;
+      try {
+        await req(`${API}/files/${id}?fields=id`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true })
+        });
+      } catch {}
+    };
+    await trash(foto.driveFileId);
+    await trash(foto.driveOrigId);
+    try {
+      const folderId = proyecto.driveFolderId || await carpetaProyecto(proyecto.nombre);
+      const datosId = proyecto.driveDatosId || await carpetaDatos(folderId);
+      const finales = await DB.fotosDe(proyecto.id);
+      const meta = { v: 1, nombre: proyecto.nombre, creado: proyecto.creado, fotos: [] };
+      for (const f of finales) {
+        meta.fotos.push({
+          id: f.id, n: f.n || 0, creado: f.creado,
+          anotaciones: f.anotaciones || [], rot: f.rot || 0,
+          driveFileId: f.driveFileId || null, driveOrigId: f.driveOrigId || null,
+          thumbB64: f.thumb ? await DB.blobABase64(f.thumb) : null
+        });
+      }
+      proyecto.driveCotasFileId = await subirJson('cotas.json', meta, datosId, proyecto.driveCotasFileId);
+      await DB.guardarProyecto(proyecto);
+    } catch {}
+  }
+
   const necesitaSubir = f => f.estadoDrive !== 'subida' && f.estadoDrive !== 'subiendo';
 
   /* sube (o actualiza) un proyecto entero: fotos finales + originales + cotas.json */
@@ -257,7 +289,7 @@ const Drive = (() => {
 
   return {
     probar, procesarCola, sincronizar, subirProyecto,
-    borrarProyectoEnDrive, descargar, activo
+    borrarProyectoEnDrive, borrarFotoEnDrive, descargar, activo
   };
 })();
 

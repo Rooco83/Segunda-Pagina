@@ -243,6 +243,7 @@ const App = (() => {
 
     const g = $('grilla-fotos');
     g.innerHTML = '';
+    fotoSel = null;
     if (!fotos.length) {
       g.innerHTML = '<p class="vacio">Sin fotos todavía.<br>Sacá una o importala de tu galería.</p>';
     }
@@ -253,21 +254,79 @@ const App = (() => {
       const [cls, txt] = BADGES[f.estadoDrive] || BADGES.local;
       const blobF = f.thumb || f.blobFinal || f.blobOriginal;
       card.innerHTML = `${blobF ? `<img src="${urlDe(blobF)}" alt="">` : ''}
-        <span class="badge ${cls}">${txt}</span>`;
-      instalarLongPress(card, () => Editor.abrir(f.id), () => menuFoto(f));
+        <span class="badge ${cls}">${txt}</span>
+        <span class="fcheck"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>`;
+      card.addEventListener('click', () => toggleSeleccion(f, card));
       g.appendChild(card);
     });
+    actualizarBarraFoto();
     mostrar('scr-proj');
   }
 
-  function menuFoto(f) {
-    hojaAcciones([
-      { txt: 'Eliminar foto', icono: ICONOS.tacho, peligro: true, fn: async () => {
-          await DB.borrarFoto(f.id);
-          toast('Foto eliminada');
-          abrirProyecto(f.proyectoId);
-        } }
-    ]);
+  /* ── selección de foto en la galería (un toque) + barra de 4 acciones ── */
+  let fotoSel = null;
+  function toggleSeleccion(f, card) {
+    if (fotoSel && fotoSel.id === f.id) { deseleccionarFoto(); return; }
+    fotoSel = f;
+    document.querySelectorAll('#grilla-fotos .foto-card.sel').forEach(c => c.classList.remove('sel'));
+    card.classList.add('sel');
+    actualizarBarraFoto();
+  }
+  function deseleccionarFoto() {
+    fotoSel = null;
+    document.querySelectorAll('#grilla-fotos .foto-card.sel').forEach(c => c.classList.remove('sel'));
+    actualizarBarraFoto();
+  }
+  function actualizarBarraFoto() {
+    const hay = !!fotoSel;
+    $('foto-acciones').classList.toggle('oculto', !hay);
+    const footer = document.querySelector('#scr-proj .proj-acciones');
+    if (footer) footer.classList.toggle('oculto', hay);
+  }
+
+  /* mejor blob disponible de una foto para compartir/descargar (JPG final) */
+  async function blobParaSalida(f) {
+    if (f.blobFinal) return f.blobFinal;
+    if (f.driveFileId && Drive.activo()) { try { return await Drive.descargar(f.driveFileId); } catch {} }
+    return f.blobOriginal || f.proxy || f.thumb || null;
+  }
+  function descargarBlob(blob, nombre) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = nombre;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }
+  async function compartirFoto(f) {
+    const blob = await blobParaSalida(f);
+    if (!blob) { toast('No se pudo preparar la imagen'); return; }
+    const nombre = (proyectoActual ? proyectoActual.nombre : 'foto') + '.jpg';
+    const file = new File([blob], nombre, { type: 'image/jpeg' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: proyectoActual ? proyectoActual.nombre : 'Cotas Venue' }); } catch {}
+    } else { descargarBlob(blob, nombre); toast('Imagen descargada'); }
+  }
+  async function descargarFoto(f) {
+    const blob = await blobParaSalida(f);
+    if (!blob) { toast('No se pudo preparar la imagen'); return; }
+    descargarBlob(blob, (proyectoActual ? proyectoActual.nombre : 'foto') + '.jpg');
+    toast('Imagen descargada');
+  }
+  async function eliminarFotoSel() {
+    const f = fotoSel;
+    if (!f) return;
+    const enDrive = !!(f.driveFileId || f.driveOrigId);
+    const r = await mostrarDialogo({
+      titulo: 'Eliminar foto',
+      mensaje: enDrive ? 'Se elimina de la app y de tu Drive.' : 'Se elimina de la app.',
+      input: false, okTxt: 'Eliminar', peligro: true
+    });
+    if (!r.ok) return;
+    await DB.borrarFoto(f.id);
+    if (enDrive && Drive.activo() && proyectoActual) { try { await Drive.borrarFotoEnDrive(proyectoActual, f); } catch {} }
+    fotoSel = null;
+    toast('Foto eliminada');
+    abrirProyecto(proyectoActual.id);
   }
 
   /* actualiza el badge de una foto sin re-armar la grilla (lo usa la cola de Drive) */
@@ -384,7 +443,8 @@ const App = (() => {
       'Se respeta la foto tal cual la sacaste: ya no se recorta ni se achica de más.',
       'El modo horizontal se rediseñó: la foto ocupa casi toda la pantalla, con las acciones flotando arriba y las opciones en una tira fina. Más lugar para trabajar.',
       'Interfaz más compacta y prolija: herramientas arriba, botones más chicos, y Girar/Fijar eje como botones de ícono.',
-      'La cajita del valor se conecta con una línea fina anclada al medio de la cota, y la podés mover a donde quieras sin que quede desprolijo.'
+      'La cajita del valor se conecta con una línea fina anclada al medio de la cota, y la podés mover a donde quieras sin que quede desprolijo.',
+      'En un proyecto, tocás una foto para seleccionarla (tilde verde) y aparecen 4 botones: Editar, Compartir, Descargar y Eliminar. Sin el menú del teléfono.'
     ] },
     { v: '3', titulo: 'Horizontal, girar imagen y valores más fáciles', fecha: 'Septiembre 2026', items: [
       'La app ahora gira con el teléfono: podés editar en horizontal, con las herramientas al costado y la foto más grande.',
@@ -494,6 +554,14 @@ const App = (() => {
     });
 
     $('btn-sacar').addEventListener('click', () => Camara.abrir(proyectoActual.id));
+
+    /* foto seleccionada: 4 acciones */
+    $('acc-editar').addEventListener('click', () => { if (fotoSel) { const id = fotoSel.id; deseleccionarFoto(); Editor.abrir(id); } });
+    $('acc-compartir').addEventListener('click', () => { if (fotoSel) compartirFoto(fotoSel); });
+    $('acc-descargar').addEventListener('click', () => { if (fotoSel) descargarFoto(fotoSel); });
+    $('acc-eliminar').addEventListener('click', () => eliminarFotoSel());
+    // sin menú nativo del teléfono al mantener presionada una miniatura
+    $('grilla-fotos').addEventListener('contextmenu', e => e.preventDefault());
 
     /* ajustes */
     $('aj-calidad').addEventListener('change', () => Ajustes.guardar({ calidad: $('aj-calidad').value }));
