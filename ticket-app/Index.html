@@ -42,6 +42,11 @@
     .upbtn.gal{background:#fff;color:var(--navy);border:1.5px solid var(--navy);}
     .upbtn:active{transform:scale(.98);}
     .fname{font-size:.85rem;color:#0a7d34;font-weight:700;margin-top:10px;word-break:break-word;}
+    .cancelx{display:inline-block;margin-left:6px;background:#fdECEA;color:#b3261e;border:1px solid #f1c6c2;border-radius:50%;width:20px;height:20px;line-height:18px;text-align:center;font-weight:800;cursor:pointer;}
+    .relee{background:#eaf1f6;color:var(--navy);border:1px solid #bcd3e2;border-radius:20px;padding:5px 10px;font-size:.72rem;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap;}
+    .pills{display:flex;gap:8px;}
+    .pill{flex:1;text-align:center;padding:12px;border:2px solid var(--line);border-radius:12px;font-family:inherit;font-weight:700;font-size:.95rem;cursor:pointer;background:#fff;color:#6b7280;}
+    .pill.on{border-color:var(--navy);background:var(--navy);color:#fff;}
     .linkbtn{background:none;border:none;color:var(--orange);font-weight:700;font-family:inherit;cursor:pointer;font-size:.9rem;text-decoration:underline;margin-top:8px;}
     .datos{background:#f8fafc;border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:12px;display:none;}
     .datos h4{margin:0 0 4px;color:var(--navy);font-size:.95rem;}
@@ -126,7 +131,10 @@
         <button class="linkbtn" onclick="manual('t')">No tengo comprobante → cargar a mano</button>
       </div>
       <div id="t_datos" class="datos">
-        <h4>Datos del comprobante <span id="t_num" style="color:var(--orange)"></span></h4>
+        <h4 style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <span>Datos del comprobante <span id="t_num" style="color:var(--orange)"></span></span>
+          <button type="button" class="relee" id="t_relee" onclick="volverALeer('t')">🔄 Volver a leer</button>
+        </h4>
         <p class="sub">Revisá y corregí lo que haga falta.</p>
         <div class="grid">
           <div class="full"><label>Tipo de comprobante</label><input id="t_tipo"></div>
@@ -154,8 +162,8 @@
       <textarea id="t_com" placeholder="Opcional…"></textarea>
 
       <div class="acciones">
-        <button class="btn otro" id="t_b1" onclick="guardar('t','otro')">Cargar otro gasto</button>
-        <button class="btn terminar" id="t_b2" onclick="guardar('t','terminar')">Terminar</button>
+        <button class="btn otro" id="t_b1" onclick="guardar('t','otro')">Guardar y cargar otro</button>
+        <button class="btn terminar" id="t_b2" onclick="guardar('t','terminar')">Procesar y finalizar</button>
       </div>
     </main>
   </section>
@@ -174,6 +182,16 @@
       <label>Elegí la cuenta</label>
       <select id="c_cuenta"><option value="">Cuenta…</option></select>
 
+      <label>Forma de pago</label>
+      <div class="pills">
+        <button type="button" class="pill on" id="c_fpEfectivo" onclick="setFormaPago('efectivo')">💵 Efectivo</button>
+        <button type="button" class="pill" id="c_fpTarjeta" onclick="setFormaPago('tarjeta')">💳 Tarjeta</button>
+      </div>
+      <div id="c_tarjetaWrap" style="display:none;">
+        <label>Elegí la tarjeta</label>
+        <select id="c_tarjeta"><option value="">Tarjeta…</option></select>
+      </div>
+
       <label>Descripción del gasto</label>
       <textarea id="c_desc" placeholder="Qué es y de dónde viene…"></textarea>
 
@@ -190,7 +208,10 @@
         <button class="linkbtn" onclick="manual('c')">No tengo comprobante → cargar a mano</button>
       </div>
       <div id="c_datos" class="datos">
-        <h4>Datos del comprobante <span id="c_num" style="color:var(--orange)"></span></h4>
+        <h4 style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <span>Datos del comprobante <span id="c_num" style="color:var(--orange)"></span></span>
+          <button type="button" class="relee" id="c_relee" onclick="volverALeer('c')">🔄 Volver a leer</button>
+        </h4>
         <p class="sub">Revisá y corregí lo que haga falta.</p>
         <div class="grid">
           <div class="full"><label>Tipo de comprobante</label><input id="c_tipo"></div>
@@ -218,8 +239,8 @@
       <textarea id="c_com" placeholder="Opcional…"></textarea>
 
       <div class="acciones">
-        <button class="btn otro" id="c_b1" onclick="guardar('c','otro')">Cargar otro gasto</button>
-        <button class="btn terminar" id="c_b2" onclick="guardar('c','terminar')">Terminar</button>
+        <button class="btn otro" id="c_b1" onclick="guardar('c','otro')">Guardar y cargar otro</button>
+        <button class="btn terminar" id="c_b2" onclick="guardar('c','terminar')">Procesar y finalizar</button>
       </div>
     </main>
   </section>
@@ -264,6 +285,9 @@
       var ts = document.getElementById('t_titular');
       ts.innerHTML = '<option value="">Titular…</option>';
       (op.titulares||[]).forEach(function(t){ var o=new Option(t.nombre, t.iniciales); ts.add(o); });
+      // Caja Chica: mismo listado de tarjetas (AMEX) para "forma de pago = tarjeta"
+      var ct = document.getElementById('c_tarjeta');
+      if(ct){ ct.innerHTML = '<option value="">Tarjeta…</option>'; (op.titulares||[]).forEach(function(t){ ct.add(new Option(t.nombre, t.nombre)); }); }
       // Cuentas en ambos
       ['t_cuenta','c_cuenta'].forEach(function(id){
         var s=document.getElementById(id); s.innerHTML='<option value="">Cuenta…</option>';
@@ -311,9 +335,10 @@
     }
 
     // ── Foto → Gemini ────────────────────────────────────────────────
+    function escapeHtml_(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
     function onFile(p,input){
       var f=input.files[0]; if(!f) return;
-      document.getElementById(p+'_fname').textContent='✓ '+f.name;
+      document.getElementById(p+'_fname').innerHTML='✓ '+escapeHtml_(f.name)+' <span class="cancelx" title="Cancelar este comprobante" onclick="cancelarComprobante(\''+p+'\')">✕</span>';
       var esImagen = /^image\//.test(f.type||'');
       var rd=new FileReader();
       rd.onload=function(ev){
@@ -382,7 +407,34 @@
       if(sel.value==='OTRA') return (document.getElementById(p+'_monOtra').value||'').trim();
       return sel.value;
     }
-    function abrirDatos(p){ document.getElementById(p+'_datos').style.display='block'; }
+    function abrirDatos(p){
+      document.getElementById(p+'_datos').style.display='block';
+      var r=document.getElementById(p+'_relee'); if(r) r.style.display = st[p].img ? 'inline-block' : 'none';
+    }
+    // Vuelve a pasar el MISMO comprobante por Gemini (para corregir una lectura mala).
+    function volverALeer(p){
+      if(!st[p].img){ return; }
+      document.getElementById(p+'_datos').style.display='none';
+      document.getElementById(p+'_estado').style.display='block';
+      google.script.run.withSuccessHandler(function(d){ llegoGemini(p,d); }).withFailureHandler(function(){ document.getElementById(p+'_estado').style.display='none'; abrirDatos(p); }).leerComprobante(st[p].img, st[p].mime);
+    }
+    // Cancela el comprobante subido (por si te equivocaste de archivo): borra la lectura y vuelve a subir.
+    function cancelarComprobante(p){
+      limpiarFoto(p);
+      document.getElementById(p+'_estado').style.display='none';
+      document.getElementById(p+'_datos').style.display='none';
+      ['_tipo','_fecha','_prov','_imp'].forEach(function(s){ var el=document.getElementById(p+s); if(el) el.value=''; });
+      var mon=document.getElementById(p+'_mon'); if(mon) mon.value='ARS';
+      var mo=document.getElementById(p+'_monOtra'); if(mo){ mo.value=''; mo.style.display='none'; }
+    }
+    // Caja Chica: forma de pago (efectivo por defecto; si es tarjeta, muestra el desplegable).
+    var formaPagoCaja='efectivo';
+    function setFormaPago(v){
+      formaPagoCaja=v;
+      document.getElementById('c_fpEfectivo').classList.toggle('on', v==='efectivo');
+      document.getElementById('c_fpTarjeta').classList.toggle('on', v==='tarjeta');
+      document.getElementById('c_tarjetaWrap').style.display = (v==='tarjeta') ? 'block' : 'none';
+    }
     function limpiarFoto(p){
       var a=document.getElementById(p+'_foto'); if(a) a.value='';
       var b=document.getElementById(p+'_foto_gal'); if(b) b.value='';
@@ -412,6 +464,15 @@
       var quien=document.getElementById(p+'_quien').value.trim();
       if(!quien){ alert('Escribí quién hizo el gasto.'); return; }
 
+      var formaPago='', tarjeta='';
+      if(p==='c'){
+        formaPago=formaPagoCaja;
+        if(formaPago==='tarjeta'){
+          tarjeta=document.getElementById('c_tarjeta').value||'';
+          if(!tarjeta){ alert('Elegí con qué tarjeta se hizo el pago.'); return; }
+        }
+      }
+
       var datosVisible = document.getElementById(p+'_datos').style.display!=='none';
       if(!st[p].img && !datosVisible){ pend={p:p,accion:accion}; document.getElementById('modal').classList.add('show'); return; }
 
@@ -425,6 +486,7 @@
         quienGasto:quien, comentario:document.getElementById(p+'_com').value,
         tipoComprobante:document.getElementById(p+'_tipo').value, fecha:document.getElementById(p+'_fecha').value,
         proveedor:document.getElementById(p+'_prov').value, importe:imp, moneda:getMoneda(p),
+        formaPago:formaPago, tarjeta:tarjeta,
         imagenBase64:st[p].img, mimeType:st[p].mime
       };
       enviarTicket(p,accion,payload);
@@ -433,7 +495,7 @@
       setBtns(p,true);
       google.script.run.withSuccessHandler(function(r){ guardado(p,accion,payload,r); }).withFailureHandler(function(e){ setBtns(p,false); alert('❌ '+(e.message||e)); }).procesarTicket(payload);
     }
-    function setBtns(p,dis){ document.getElementById(p+'_b1').disabled=dis; document.getElementById(p+'_b2').disabled=dis; document.getElementById(p+'_b1').textContent=dis?'Guardando…':'Cargar otro gasto'; }
+    function setBtns(p,dis){ document.getElementById(p+'_b1').disabled=dis; document.getElementById(p+'_b2').disabled=dis; document.getElementById(p+'_b1').textContent=dis?'Guardando…':'Guardar y cargar otro'; }
     function guardado(p,accion,payload,r){
       setBtns(p,false);
       if(!r || !r.ok){
@@ -455,7 +517,7 @@
     }
     function resetForm(p){
       ['_quien','_com','_tipo','_fecha','_prov','_imp','_cco'].forEach(function(s){ var el=document.getElementById(p+s); if(el) el.value=''; });
-      if(p==='c') document.getElementById('c_desc').value='';
+      if(p==='c'){ document.getElementById('c_desc').value=''; document.getElementById('c_tarjeta').value=''; setFormaPago('efectivo'); }
       document.getElementById(p+'_mon').value='ARS';
       var mo=document.getElementById(p+'_monOtra'); if(mo){ mo.value=''; mo.style.display='none'; }
       document.getElementById(p+'_cco').dataset.val='';

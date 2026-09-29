@@ -42,7 +42,7 @@ const ENC_TARJETA = [
 ];
 const ENC_CAJA = [
   'ORDEN', 'FECHA', 'TIPO COMPROBANTE', 'PROVEEDOR', 'IMPORTE', 'MONEDA',
-  'EVENTO (CCO)', 'CUENTA', 'DESCRIPCION', 'QUIEN HIZO EL GASTO', 'COMENTARIO',
+  'EVENTO (CCO)', 'CUENTA', 'FORMA DE PAGO', 'TARJETA', 'DESCRIPCION', 'QUIEN HIZO EL GASTO', 'COMENTARIO',
   'IMAGEN', 'CARGADO', 'ESTADO'
 ];
 const COL_IMPORTE = 5;      // columna E (IMPORTE) en ambos formatos
@@ -181,7 +181,10 @@ function leerComprobante(base64, mimeType) {
     'Devolvé SOLO lo que puedas leer con seguridad:\n' +
     '- tipo_comprobante: tipo del comprobante (ej: "Factura A", "Factura B", "Factura C", "Ticket", "Recibo", "Nota de crédito"). Si no se distingue, "Ticket".\n' +
     '- fecha: fecha del comprobante en formato DD/MM/AAAA.\n' +
-    '- proveedor: nombre del comercio o empresa que emite.\n' +
+    '- proveedor: nombre del comercio o empresa que EMITE la factura (quien vende/cobra). ' +
+    'MUY IMPORTANTE: NUESTRA empresa es "POLENTA S.R.L." (también llamada "Venue" / "Venue Brand Experience"), ' +
+    'CUIT 33709042829, domicilio Zapiola 1085, CABA. Esa NO es el proveedor: es el CLIENTE/DESTINATARIO de la factura. ' +
+    'Nunca devuelvas Polenta/Venue como proveedor; el proveedor es SIEMPRE la otra parte (el que nos vende).\n' +
     '- importe_total: el monto TOTAL final a pagar, como número. IMPORTANTE: los comprobantes usan formato ARGENTINO, donde el punto (.) separa MILES y la coma (,) separa decimales. Ejemplos: "$128.400" = 128400 ; "$1.234,56" = 1234.56 ; "$500" = 500. Devolvé el número COMPLETO, sin separador de miles, usando punto solo si hay decimales.\n' +
     '- moneda: código (ARS, USD, EUR, etc.).\n' +
     'Si algún dato no aparece, devolvé cadena vacía (0 para el importe).';
@@ -298,7 +301,7 @@ function procesarTicket(p) {
     const comun = [orden, p.fecha || '', p.tipoComprobante || '', p.proveedor || '', parseImporte_(p.importe), monedaTxt];
     const valores = esTarjeta
       ? comun.concat([p.titular || '', p.cco || '', p.cuenta || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado])
-      : comun.concat([p.cco || '', p.cuenta || '', p.descripcion || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado]);
+      : comun.concat([p.cco || '', p.cuenta || '', formaPagoTxt_(p), p.tarjeta || '', p.descripcion || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado]);
     const filaNueva = agregarFila_(hoja, valores, monedaTxt);
     if (fueraDeVto || dupOrden) hoja.getRange(filaNueva, valores.length).setBackground(CLR_ROJO_SUAVE);
 
@@ -372,11 +375,12 @@ function construirFormato_(hoja, nombreCtx, fechaCtx, headers) {
   const lambda = 'LAMBDA(c' + s + 'c&" "&TEXT(' + sumif + s + '"#,##0.00"))';
   const uniq = 'UNIQUE(FILTER(' + rMonT + s + rMonT + '<>""))';
   const mapa = 'MAP(' + uniq + s + lambda + ')';
-  const formulaTot = '="TOTALES POR MONEDA:   "&IFERROR(TEXTJOIN("      "' + s + 'TRUE' + s + mapa + ')' + s + '"")';
+  const formulaTot = '="💰  TOTAL GASTADO:      "&IFERROR(TEXTJOIN("        "' + s + 'TRUE' + s + mapa + ')' + s + '"")';
   hoja.getRange(TOTAL_ROW, 1, 1, n).merge()
-    .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold')
+    .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(13)
     .setHorizontalAlignment('left').setVerticalAlignment('middle');
   hoja.getRange(TOTAL_ROW, 1).setFormula(formulaTot);
+  hoja.setRowHeight(TOTAL_ROW, 40); // fila de totales más alta, para que resalte
 
   hoja.getRange(HEADER_ROW, 1, 1, n).setValues([headers])
     .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setHorizontalAlignment('center');
@@ -405,6 +409,18 @@ function construirFormato_(hoja, nombreCtx, fechaCtx, headers) {
     .requireValueInList(PRIORIDAD_MONEDA, true).setAllowInvalid(true)
     .setHelpText('Elegí la moneda de la lista.').build();
   hoja.getRange(FIRST_DATA_ROW, COL_MONEDA, filasZona, 1).setDataValidation(reglaMon);
+
+  // Aviso automático: si hay IMPORTE pero falta la MONEDA, se pinta la celda de MONEDA en rojo
+  // (ese gasto NO se suma al total hasta completar la moneda). Se enciende solo (formato condicional).
+  const rangoMon = hoja.getRange(FIRST_DATA_ROW, COL_MONEDA, filasZona, 1);
+  const formulaFalta = '=($' + impColT + FIRST_DATA_ROW + '<>"")*($' + monColT + FIRST_DATA_ROW + '="")'; // sin comas/;: a prueba de idioma
+  const reglaFalta = SpreadsheetApp.newConditionalFormatRule()
+    .whenFormulaSatisfied(formulaFalta)
+    .setBackground(CLR_ROJO_SUAVE).setFontColor('#B3261E')
+    .setRanges([rangoMon]).build();
+  const reglas = hoja.getConditionalFormatRules();
+  reglas.push(reglaFalta);
+  hoja.setConditionalFormatRules(reglas);
 }
 
 // Inserta una fila de datos al final. La tira de TOTALES es una fórmula fija que se actualiza sola.
@@ -481,6 +497,14 @@ function parseFecha_(s) {
   return new Date(parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10));
 }
 function diaFin_(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59); }
+
+// Texto lindo para la forma de pago de Caja Chica.
+function formaPagoTxt_(p) {
+  const f = String(p.formaPago || '').toLowerCase();
+  if (f === 'tarjeta') return 'Tarjeta';
+  if (f === 'efectivo') return 'Efectivo';
+  return f || '';
+}
 
 // Normaliza una fecha (Date o texto) a "dd/MM/yyyy" para poder comparar.
 function normalizarFecha_(v) {
