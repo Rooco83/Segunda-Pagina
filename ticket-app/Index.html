@@ -47,6 +47,9 @@
     .pills{display:flex;gap:8px;}
     .pill{flex:1;text-align:center;padding:12px;border:2px solid var(--line);border-radius:12px;font-family:inherit;font-weight:700;font-size:.95rem;cursor:pointer;background:#fff;color:#6b7280;}
     .pill.on{border-color:var(--navy);background:var(--navy);color:#fff;}
+    .devo-toggle{display:flex;align-items:center;gap:8px;margin-top:12px;background:#fff3ee;border:1px solid #f6c9b6;border-radius:12px;padding:11px 12px;font-size:.85rem;color:var(--ink);cursor:pointer;}
+    .devo-toggle input{width:auto;flex:none;transform:scale(1.25);}
+    .devo-toggle b{color:var(--navy);}
     .linkbtn{background:none;border:none;color:var(--orange);font-weight:700;font-family:inherit;cursor:pointer;font-size:.9rem;text-decoration:underline;margin-top:8px;}
     .datos{background:#f8fafc;border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:12px;display:none;}
     .datos h4{margin:0 0 4px;color:var(--navy);font-size:.95rem;}
@@ -189,6 +192,7 @@
             <input id="t_monOtra" placeholder="Código, ej: UYU" style="display:none;margin-top:6px;">
           </div>
         </div>
+        <label class="devo-toggle"><input type="checkbox" id="t_devo"> <span>➖ <b>Es devolución</b> (Nota de crédito) — resta del total</span></label>
       </div>
       <div class="estado" id="t_estado">⏳ Leyendo el comprobante…</div>
 
@@ -215,16 +219,6 @@
 
       <label>Elegí la cuenta</label>
       <select id="c_cuenta"><option value="">Cuenta…</option></select>
-
-      <label>Forma de pago</label>
-      <div class="pills">
-        <button type="button" class="pill on" id="c_fpEfectivo" onclick="setFormaPago('efectivo')">💵 Efectivo</button>
-        <button type="button" class="pill" id="c_fpTarjeta" onclick="setFormaPago('tarjeta')">💳 Tarjeta</button>
-      </div>
-      <div id="c_tarjetaWrap" style="display:none;">
-        <label>Elegí la tarjeta</label>
-        <select id="c_tarjeta"><option value="">Tarjeta…</option></select>
-      </div>
 
       <label>Descripción del gasto</label>
       <textarea id="c_desc" placeholder="Qué es y de dónde viene…"></textarea>
@@ -311,6 +305,7 @@
           <div class="gopt">💾 <b>Guardar y cargar otro:</b> guarda este gasto en la planilla y te deja el formulario listo para cargar OTRO (te mantiene titular y cuenta).</div>
           <div class="gopt">✅ <b>Procesar y finalizar:</b> guarda este gasto en la planilla y te lleva a la <b>pantalla principal</b>.</div>
         </div>
+        <div class="gnote">➖ Si es una <b>Nota de crédito / devolución</b>, marcá el interruptor <b>"Es devolución"</b> (se marca solo si la IA lo detecta) para que ese monto <b>reste</b> del total.</div>
         <div class="gnote">¿No tenés comprobante? Tocá <b>"No tengo comprobante → cargar a mano"</b> y completás los datos vos.</div>
       </div>
 
@@ -318,16 +313,16 @@
         <h4>Cargar un gasto de Caja Chica</h4>
         <div class="gstep"><div class="gnum">1</div><div class="gx">Buscá y elegí el <b>evento (CCO)</b>.</div></div>
         <div class="gstep"><div class="gnum">2</div><div class="gx">Escribí <b>quién hizo el gasto</b> y elegí la <b>cuenta</b>.</div></div>
-        <div class="gstep"><div class="gnum">3</div><div class="gx"><b>Forma de pago:</b> Efectivo o Tarjeta (si es tarjeta, elegí cuál).</div></div>
-        <div class="gstep"><div class="gnum">4</div><div class="gx">Escribí la <b>descripción</b> del gasto.</div></div>
-        <div class="gstep"><div class="gnum">5</div><div class="gx"><b>Sacá foto</b> o subí el comprobante (imagen o PDF). La IA lo lee solo.</div></div>
-        <div class="gstep"><div class="gnum">6</div><div class="gx"><b>Revisá y corregí</b> los datos. Podés <span class="gtag">🔄 Volver a leer</span> o <span class="gtag">✕ cancelar</span>.</div></div>
-        <div class="gstep"><div class="gnum">7</div><div class="gx">Guardá con una de las dos opciones 👇</div></div>
+        <div class="gstep"><div class="gnum">3</div><div class="gx">Escribí la <b>descripción</b> del gasto.</div></div>
+        <div class="gstep"><div class="gnum">4</div><div class="gx"><b>Sacá foto</b> o subí el comprobante (imagen o PDF). La IA lo lee solo.</div></div>
+        <div class="gstep"><div class="gnum">5</div><div class="gx"><b>Revisá y corregí</b> los datos. Podés <span class="gtag">🔄 Volver a leer</span> o <span class="gtag">✕ cancelar</span>.</div></div>
+        <div class="gstep"><div class="gnum">6</div><div class="gx">Guardá con una de las dos opciones 👇</div></div>
         <div class="gcallout">
           <div class="gct">¿Qué hace cada botón?</div>
           <div class="gopt">💾 <b>Guardar y cargar otro:</b> guarda este gasto en la planilla y te deja listo para cargar OTRO (te mantiene la cuenta).</div>
           <div class="gopt">✅ <b>Procesar y finalizar:</b> guarda este gasto en la planilla y te lleva a la <b>pantalla principal</b>.</div>
         </div>
+        <div class="gnote">💵 En la <b>planilla</b> de Caja Chica podés completar el <b>Importe entregado</b> (arriba); la planilla calcula sola el <b>Saldo a devolver</b> (lo entregado − lo gastado).</div>
         <div class="gnote">¿No tenés comprobante? Tocá <b>"No tengo comprobante → cargar a mano"</b> y completás los datos vos.</div>
       </div>
     </main>
@@ -364,8 +359,9 @@
     var APP_VERSION = '1.2';
     var CHANGELOG = {
       '1.2': [
-        ['💳','<b>Caja Chica:</b> ahora elegís la forma de pago — Efectivo o Tarjeta.'],
         ['🔄','Podés <b>volver a leer</b> un comprobante si la IA leyó mal, y <b>✕ cancelarlo</b> si te equivocaste de archivo.'],
+        ['➖','<b>Notas de crédito / devoluciones</b> (Tarjeta): se marcan y <b>restan</b> del total.'],
+        ['💵','<b>Caja Chica:</b> ahora podés cargar el <b>importe entregado</b> y ver el <b>saldo a devolver</b>.'],
         ['💰','Los <b>totales por moneda</b> se ven más grandes y claros.'],
         ['⚠️','Si falta la <b>moneda</b>, la casilla se marca en rojo (ese gasto no suma hasta completarla).'],
         ['🧾','Mejor detección del <b>proveedor</b> (ya no confunde a Venue).'],
@@ -406,9 +402,6 @@
       var ts = document.getElementById('t_titular');
       ts.innerHTML = '<option value="">Titular…</option>';
       (op.titulares||[]).forEach(function(t){ var o=new Option(t.nombre, t.iniciales); ts.add(o); });
-      // Caja Chica: mismo listado de tarjetas (AMEX) para "forma de pago = tarjeta"
-      var ct = document.getElementById('c_tarjeta');
-      if(ct){ ct.innerHTML = '<option value="">Tarjeta…</option>'; (op.titulares||[]).forEach(function(t){ ct.add(new Option(t.nombre, t.nombre)); }); }
       // Cuentas en ambos
       ['t_cuenta','c_cuenta'].forEach(function(id){
         var s=document.getElementById(id); s.innerHTML='<option value="">Cuenta…</option>';
@@ -488,11 +481,14 @@
       document.getElementById(p+'_estado').style.display='block';
       google.script.run.withSuccessHandler(function(d){ llegoGemini(p,d); }).withFailureHandler(function(){ document.getElementById(p+'_estado').style.display='none'; abrirDatos(p); }).leerComprobante(st[p].img, st[p].mime);
     }
+    function esNC(txt){ var t=String(txt||'').toLowerCase().replace(/\./g,'').trim(); return /nota\s*de\s*cr[eé]dito/.test(t)||t==='nc'||t==='ns'||/\bn\/?c\b/.test(t); }
     function llegoGemini(p,d){
       document.getElementById(p+'_estado').style.display='none';
       if(d && d.ok){
         set(p+'_tipo',d.tipoComprobante); set(p+'_fecha',d.fecha); set(p+'_prov',d.proveedor);
         document.getElementById(p+'_imp').value = fmtAR(d.importe); setMoneda(p,d.moneda||'ARS');
+        // Tarjeta: si es Nota de crédito, marca "devolución" solo (se puede destildar).
+        var dv=document.getElementById(p+'_devo'); if(dv) dv.checked = esNC(d.tipoComprobante);
       }
       abrirDatos(p);
     }
@@ -548,14 +544,7 @@
       ['_tipo','_fecha','_prov','_imp'].forEach(function(s){ var el=document.getElementById(p+s); if(el) el.value=''; });
       var mon=document.getElementById(p+'_mon'); if(mon) mon.value='ARS';
       var mo=document.getElementById(p+'_monOtra'); if(mo){ mo.value=''; mo.style.display='none'; }
-    }
-    // Caja Chica: forma de pago (efectivo por defecto; si es tarjeta, muestra el desplegable).
-    var formaPagoCaja='efectivo';
-    function setFormaPago(v){
-      formaPagoCaja=v;
-      document.getElementById('c_fpEfectivo').classList.toggle('on', v==='efectivo');
-      document.getElementById('c_fpTarjeta').classList.toggle('on', v==='tarjeta');
-      document.getElementById('c_tarjetaWrap').style.display = (v==='tarjeta') ? 'block' : 'none';
+      var dv=document.getElementById(p+'_devo'); if(dv) dv.checked=false;
     }
     function limpiarFoto(p){
       var a=document.getElementById(p+'_foto'); if(a) a.value='';
@@ -586,14 +575,8 @@
       var quien=document.getElementById(p+'_quien').value.trim();
       if(!quien){ alert('Escribí quién hizo el gasto.'); return; }
 
-      var formaPago='', tarjeta='';
-      if(p==='c'){
-        formaPago=formaPagoCaja;
-        if(formaPago==='tarjeta'){
-          tarjeta=document.getElementById('c_tarjeta').value||'';
-          if(!tarjeta){ alert('Elegí con qué tarjeta se hizo el pago.'); return; }
-        }
-      }
+      var dvEl=document.getElementById(p+'_devo');
+      var devolucion = !!(dvEl && dvEl.checked);
 
       var datosVisible = document.getElementById(p+'_datos').style.display!=='none';
       if(!st[p].img && !datosVisible){ pend={p:p,accion:accion}; document.getElementById('modal').classList.add('show'); return; }
@@ -608,7 +591,7 @@
         quienGasto:quien, comentario:document.getElementById(p+'_com').value,
         tipoComprobante:document.getElementById(p+'_tipo').value, fecha:document.getElementById(p+'_fecha').value,
         proveedor:document.getElementById(p+'_prov').value, importe:imp, moneda:getMoneda(p),
-        formaPago:formaPago, tarjeta:tarjeta,
+        devolucion:devolucion,
         imagenBase64:st[p].img, mimeType:st[p].mime
       };
       enviarTicket(p,accion,payload);
@@ -639,9 +622,10 @@
     }
     function resetForm(p){
       ['_quien','_com','_tipo','_fecha','_prov','_imp','_cco'].forEach(function(s){ var el=document.getElementById(p+s); if(el) el.value=''; });
-      if(p==='c'){ document.getElementById('c_desc').value=''; document.getElementById('c_tarjeta').value=''; setFormaPago('efectivo'); }
+      if(p==='c'){ document.getElementById('c_desc').value=''; }
       document.getElementById(p+'_mon').value='ARS';
       var mo=document.getElementById(p+'_monOtra'); if(mo){ mo.value=''; mo.style.display='none'; }
+      var dv=document.getElementById(p+'_devo'); if(dv) dv.checked=false;
       document.getElementById(p+'_cco').dataset.val='';
       document.getElementById(p+'_ccoOk').style.display='none';
       document.getElementById(p+'_datos').style.display='none';

@@ -42,7 +42,7 @@ const ENC_TARJETA = [
 ];
 const ENC_CAJA = [
   'ORDEN', 'FECHA', 'TIPO COMPROBANTE', 'PROVEEDOR', 'IMPORTE', 'MONEDA',
-  'EVENTO (CCO)', 'CUENTA', 'FORMA DE PAGO', 'TARJETA', 'DESCRIPCION', 'QUIEN HIZO EL GASTO', 'COMENTARIO',
+  'EVENTO (CCO)', 'CUENTA', 'DESCRIPCION', 'QUIEN HIZO EL GASTO', 'COMENTARIO',
   'IMAGEN', 'CARGADO', 'ESTADO'
 ];
 const COL_IMPORTE = 5;      // columna E (IMPORTE) en ambos formatos
@@ -265,8 +265,13 @@ function procesarTicket(p) {
     const ss = getSpreadsheetIn_(carpetaDestino, ssName);
     const hoja = getOrCreateHoja_(ss, solapa, esTarjeta ? (p.titular || '') : (p.cco || ''), esTarjeta ? solapa : '', headers);
 
+    // Devolución (Nota de crédito) — SOLO Tarjeta: el importe se guarda en NEGATIVO para que reste del total.
+    const esDevol = esTarjeta && (p.devolucion === true || esNotaCredito_(p.tipoComprobante));
+    let importeNum = parseImporte_(p.importe);
+    if (esDevol && importeNum > 0) importeNum = -importeNum;
+
     // Chequeo de DUPLICADO (misma fecha, proveedor, importe y moneda). Si no lo fuerzan, avisar sin guardar.
-    const dupOrden = buscarDuplicado_(hoja, p);
+    const dupOrden = buscarDuplicado_(hoja, p, importeNum);
     if (dupOrden && !p.forzar) {
       return { ok: false, duplicado: true, ordenExistente: dupOrden, moneda: normalizarMoneda_(p.moneda) };
     }
@@ -282,6 +287,7 @@ function procesarTicket(p) {
     if (dupOrden) estado = agregarAviso_(estado, 'posible duplicado del #' + dupOrden);
     if (fueraDeVto) estado = agregarAviso_(estado, 'fecha fuera de los vencimientos');
     if (!p.importe) estado = agregarAviso_(estado, 'sin importe');
+    if (esDevol) estado = (estado === 'OK') ? 'Devolución (Nota de crédito)' : ('Devolución; ' + estado);
 
     // Guardar imagen o, si es carga manual, un texto con los datos.
     let link = '';
@@ -298,10 +304,10 @@ function procesarTicket(p) {
     }
 
     const monedaTxt = normalizarMoneda_(p.moneda);
-    const comun = [orden, p.fecha || '', p.tipoComprobante || '', p.proveedor || '', parseImporte_(p.importe), monedaTxt];
+    const comun = [orden, p.fecha || '', p.tipoComprobante || '', p.proveedor || '', importeNum, monedaTxt];
     const valores = esTarjeta
       ? comun.concat([p.titular || '', p.cco || '', p.cuenta || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado])
-      : comun.concat([p.cco || '', p.cuenta || '', formaPagoTxt_(p), p.tarjeta || '', p.descripcion || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado]);
+      : comun.concat([p.cco || '', p.cuenta || '', p.descripcion || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado]);
     const filaNueva = agregarFila_(hoja, valores, monedaTxt);
     if (fueraDeVto || dupOrden) hoja.getRange(filaNueva, valores.length).setBackground(CLR_ROJO_SUAVE);
 
@@ -353,6 +359,7 @@ function getOrCreateHoja_(ss, solapa, nombreCtx, fechaCtx, headers) {
 // Arma el formato estilo "Planilla de Rendición" (bloque de marca, título, encabezados, TOTAL).
 function construirFormato_(hoja, nombreCtx, fechaCtx, headers) {
   const n = headers.length;
+  const esCaja = (headers.indexOf('DESCRIPCION') > -1); // Caja Chica tiene DESCRIPCION
   hoja.getRange('A1:C1').merge().setValue('VENUE BRAND EXPERIENCE').setFontWeight('bold');
   hoja.getRange('A2:C2').merge().setValue('Nombre: ' + (nombreCtx || ''));
   hoja.getRange('A3:C3').merge().setValue('Fecha: ' + (fechaCtx || ''));
@@ -382,6 +389,32 @@ function construirFormato_(hoja, nombreCtx, fechaCtx, headers) {
   hoja.getRange(TOTAL_ROW, 1).setFormula(formulaTot);
   hoja.setRowHeight(TOTAL_ROW, 40); // fila de totales más alta, para que resalte
 
+  // CAJA CHICA: fila 4 con "Importe entregado" (lo completás vos) y "Saldo a devolver" (= entregado − gastado).
+  if (esCaja) {
+    hoja.getRange('A4:B4').merge().setValue('IMPORTE ENTREGADO')
+      .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(9)
+      .setHorizontalAlignment('left').setVerticalAlignment('middle');
+    hoja.getRange('C4').setBackground('#FFFFFF').setFontColor(CLR_TEXTO).setFontWeight('bold')
+      .setNumberFormat('#,##0.00').setHorizontalAlignment('right')
+      .setBorder(true, true, true, true, false, false, '#9db8ca', SpreadsheetApp.BorderStyle.DASHED);
+    hoja.getRange('C4').setDataValidation(SpreadsheetApp.newDataValidation()
+      .requireNumberGreaterThanOrEqualTo(0).setAllowInvalid(false)
+      .setHelpText('Ingresá el importe entregado (solo número).').build());
+    hoja.getRange('D4').setBackground('#FFFFFF').setFontWeight('bold').setHorizontalAlignment('center')
+      .setBorder(true, true, true, true, false, false, '#9db8ca', SpreadsheetApp.BorderStyle.DASHED)
+      .setDataValidation(SpreadsheetApp.newDataValidation()
+        .requireValueInList(PRIORIDAD_MONEDA, true).setAllowInvalid(true)
+        .setHelpText('Elegí la moneda entregada.').build());
+    hoja.getRange('E4:F4').merge().setValue('SALDO A DEVOLVER')
+      .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(9)
+      .setHorizontalAlignment('left').setVerticalAlignment('middle');
+    const fSaldo = '=IF(OR($C$4=""' + s + '$D$4="")' + s + '""' + s + '$C$4-SUMIF(' + rMonT + s + '$D$4' + s + rImpT + '))';
+    hoja.getRange('G4').setFormula(fSaldo).setNumberFormat('#,##0.00')
+      .setBackground(CLR_ORANGE).setFontColor('#FFFFFF').setFontWeight('bold')
+      .setHorizontalAlignment('right').setVerticalAlignment('middle');
+    hoja.setRowHeight(4, 30);
+  }
+
   hoja.getRange(HEADER_ROW, 1, 1, n).setValues([headers])
     .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setHorizontalAlignment('center');
 
@@ -401,8 +434,8 @@ function construirFormato_(hoja, nombreCtx, fechaCtx, headers) {
   // Validaciones para la carga MANUAL (así el que escribe a mano no se equivoca):
   // IMPORTE: solo números (la moneda se indica en la columna de al lado).
   const reglaNum = SpreadsheetApp.newDataValidation()
-    .requireNumberGreaterThanOrEqualTo(0).setAllowInvalid(false)
-    .setHelpText('Ingresá solo el número del importe (sin símbolos ni moneda).').build();
+    .requireNumberBetween(-999999999999, 999999999999).setAllowInvalid(false)
+    .setHelpText('Ingresá solo el número del importe (negativo si es devolución).').build();
   hoja.getRange(FIRST_DATA_ROW, COL_IMPORTE, filasZona, 1).setDataValidation(reglaNum).setNumberFormat('#,##0.00');
   // MONEDA: desplegable con las monedas de la app.
   const reglaMon = SpreadsheetApp.newDataValidation()
@@ -498,12 +531,10 @@ function parseFecha_(s) {
 }
 function diaFin_(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59); }
 
-// Texto lindo para la forma de pago de Caja Chica.
-function formaPagoTxt_(p) {
-  const f = String(p.formaPago || '').toLowerCase();
-  if (f === 'tarjeta') return 'Tarjeta';
-  if (f === 'efectivo') return 'Efectivo';
-  return f || '';
+// ¿El tipo de comprobante es una Nota de crédito / devolución? (NC, NS, "nota de credito").
+function esNotaCredito_(tipo) {
+  const t = String(tipo || '').toLowerCase().replace(/\./g, '').trim();
+  return /nota\s*de\s*cr[ée]dito/.test(t) || t === 'nc' || t === 'ns' || /\bn\/?c\b/.test(t);
 }
 
 // Normaliza una fecha (Date o texto) a "dd/MM/yyyy" para poder comparar.
@@ -513,12 +544,13 @@ function normalizarFecha_(v) {
 }
 
 // Busca si ya hay una fila con misma FECHA, PROVEEDOR, IMPORTE y MONEDA. Devuelve el ORDEN existente o null.
-function buscarDuplicado_(hoja, p) {
+// importeFirmado: el importe con signo (negativo si es devolución), para comparar bien.
+function buscarDuplicado_(hoja, p, importeFirmado) {
   const last = hoja.getLastRow();
   if (last < FIRST_DATA_ROW) return null;
   const fechaN = normalizarFecha_(p.fecha);
   const provN = String(p.proveedor || '').trim().toLowerCase();
-  const impN = parseImporte_(p.importe);
+  const impN = (importeFirmado === undefined || importeFirmado === null) ? parseImporte_(p.importe) : importeFirmado;
   const monN = normalizarMoneda_(p.moneda);
   // Columnas: 1 ORDEN, 2 FECHA, 4 PROVEEDOR, 5 IMPORTE, 6 MONEDA
   const datos = hoja.getRange(FIRST_DATA_ROW, 1, last - FIRST_DATA_ROW + 1, COL_MONEDA).getValues();
