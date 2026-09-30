@@ -139,6 +139,7 @@
       </div>
       <div class="home-extra">
         <button class="guia-link" onclick="go('guia')">📖 Guía de uso</button>
+        <button class="guia-link" style="margin-top:10px;" onclick="verNovedades()">✨ Novedades</button>
         <div class="appver" id="appver">Versión 1.2</div>
       </div>
     </div>
@@ -371,6 +372,8 @@
         ['💰','Los <b>totales por moneda</b> se ven más grandes y claros.'],
         ['⚠️','Si falta la <b>moneda</b>, la casilla se marca en rojo (ese gasto no suma hasta completarla).'],
         ['🧾','Mejor detección del <b>proveedor</b> (ya no confunde a Venue).'],
+        ['🗓️','<b>Fechas más seguras:</b> acepta barra, guion o punto, y el <b>año es siempre el corriente</b> (corrige años mal leídos).'],
+        ['🔽','Desplegables <b>más lindos</b> y ahora se pueden <b>navegar con el teclado</b>.'],
         ['🔁','Botones más claros: <b>Guardar y cargar otro</b> / <b>Procesar y finalizar</b>.']
       ]
     };
@@ -388,6 +391,8 @@
       var seen=''; try{ seen=localStorage.getItem('venue_ver_seen')||''; }catch(e){}
       if(seen!==APP_VERSION){ document.getElementById('novedades').classList.add('show'); }
     }
+    // Mostrar las novedades a pedido (aunque ya las hayas visto).
+    function verNovedades(){ document.getElementById('novedades').classList.add('show'); }
     // Guía: cambiar de pestaña
     function guiaTab(w){
       document.getElementById('gt_t').classList.toggle('on', w==='t');
