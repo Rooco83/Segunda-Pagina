@@ -161,12 +161,14 @@ function etiquetaVto_(v) {
   return f ? nombreMesAnio_(f) : s;
 }
 function solapaParaFecha_(fechaStr) {
-  const f = parseFecha_(fechaStr) || new Date();
+  const parsed = parseFecha_(fechaStr);
+  const fechaOk = !!parsed;              // ¿se pudo leer la fecha?
+  const f = parsed || new Date();
   const vtos = leerVtos_();
   for (var i = 0; i < vtos.length; i++) {
-    if (f >= vtos[i].desde && f <= diaFin_(vtos[i].hasta)) return { solapa: vtos[i].etiqueta, enVto: true };
+    if (f >= vtos[i].desde && f <= diaFin_(vtos[i].hasta)) return { solapa: vtos[i].etiqueta, enVto: true, fechaOk: fechaOk };
   }
-  return { solapa: nombreMesAnio_(f), enVto: false };
+  return { solapa: nombreMesAnio_(f), enVto: false, fechaOk: fechaOk };
 }
 
 
@@ -243,7 +245,7 @@ function procesarTicket(p) {
   try {
     const esTarjeta = (p.tipo === 'tarjeta');
     const root = DriveApp.getFolderById(CONFIG.ROOT_FOLDER_ID);
-    let carpetaDestino, ssName, solapa, fueraDeVto = false;
+    let carpetaDestino, ssName, solapa, fueraDeVto = false, fechaIlegible = false;
 
     if (esTarjeta) {
       const ini = limpiarNombre_(p.iniciales || '');
@@ -253,6 +255,7 @@ function procesarTicket(p) {
       const info = solapaParaFecha_(p.fecha);
       solapa = info.solapa;
       fueraDeVto = !info.enVto;
+      fechaIlegible = !info.fechaOk;
     } else {
       const cco = String(p.cco || '').trim();
       if (!cco) return { ok: false, error: 'Elegí el evento (CCO).' };
@@ -287,6 +290,7 @@ function procesarTicket(p) {
     if (dupOrden) estado = agregarAviso_(estado, 'posible duplicado del #' + dupOrden);
     if (fueraDeVto) estado = agregarAviso_(estado, 'fecha fuera de los vencimientos');
     if (!p.importe) estado = agregarAviso_(estado, 'sin importe');
+    if (fechaIlegible) estado = agregarAviso_(estado, 'no se pudo leer la fecha — revisá la solapa');
     if (esDevol) estado = (estado === 'OK') ? 'Devolución (Nota de crédito)' : ('Devolución; ' + estado);
 
     // Guardar imagen o, si es carga manual, un texto con los datos.
@@ -304,12 +308,12 @@ function procesarTicket(p) {
     }
 
     const monedaTxt = normalizarMoneda_(p.moneda);
-    const comun = [orden, p.fecha || '', p.tipoComprobante || '', p.proveedor || '', importeNum, monedaTxt];
+    const comun = [orden, normalizarFecha_(p.fecha), p.tipoComprobante || '', p.proveedor || '', importeNum, monedaTxt];
     const valores = esTarjeta
       ? comun.concat([p.titular || '', p.cco || '', p.cuenta || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado])
       : comun.concat([p.cco || '', p.cuenta || '', p.descripcion || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado]);
     const filaNueva = agregarFila_(hoja, valores, monedaTxt);
-    if (fueraDeVto || dupOrden) hoja.getRange(filaNueva, valores.length).setBackground(CLR_ROJO_SUAVE);
+    if (fueraDeVto || dupOrden || fechaIlegible) hoja.getRange(filaNueva, valores.length).setBackground(CLR_ROJO_SUAVE);
 
     return {
       ok: true, orden: ordenTxt, tipo: p.tipo, titular: p.titular || '', cco: p.cco || '',
@@ -525,9 +529,12 @@ function guardarTextoManual_(carpeta, nombre, p) {
 //  Helpers varios
 // ─────────────────────────────────────────────────────────────────────────
 function parseFecha_(s) {
-  const m = String(s).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  // Acepta DD/MM/AAAA, DD-MM-AAAA, DD.MM.AAAA (y año de 2 dígitos).
+  const m = String(s).match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
   if (!m) return null;
-  return new Date(parseInt(m[3], 10), parseInt(m[2], 10) - 1, parseInt(m[1], 10));
+  let y = parseInt(m[3], 10);
+  if (y < 100) y += 2000;
+  return new Date(y, parseInt(m[2], 10) - 1, parseInt(m[1], 10));
 }
 function diaFin_(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59); }
 
@@ -537,9 +544,11 @@ function esNotaCredito_(tipo) {
   return /nota\s*de\s*cr[ée]dito/.test(t) || t === 'nc' || t === 'ns' || /\bn\/?c\b/.test(t);
 }
 
-// Normaliza una fecha (Date o texto) a "dd/MM/yyyy" para poder comparar.
+// Normaliza una fecha (Date o texto, con / - o .) a "dd/MM/yyyy". Sirve para guardar y comparar.
 function normalizarFecha_(v) {
   if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+  const d = parseFecha_(v);
+  if (d) return Utilities.formatDate(d, Session.getScriptTimeZone(), 'dd/MM/yyyy');
   return String(v == null ? '' : v).trim();
 }
 
