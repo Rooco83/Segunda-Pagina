@@ -393,30 +393,41 @@ function construirFormato_(hoja, nombreCtx, fechaCtx, headers) {
   hoja.getRange(TOTAL_ROW, 1).setFormula(formulaTot);
   hoja.setRowHeight(TOTAL_ROW, 40); // fila de totales más alta, para que resalte
 
-  // CAJA CHICA: fila 4 con "Importe entregado" (lo completás vos) y "Saldo a devolver" (= entregado − gastado).
+  // CAJA CHICA: fila 4 — "Efectivo entregado" (celda AMARILLA = completás vos) y "Saldo a devolver" (= entregado − gastado).
   if (esCaja) {
-    hoja.getRange('A4:B4').merge().setValue('IMPORTE ENTREGADO')
-      .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(9)
-      .setHorizontalAlignment('left').setVerticalAlignment('middle');
-    hoja.getRange('C4').setBackground('#FFFFFF').setFontColor(CLR_TEXTO).setFontWeight('bold')
-      .setNumberFormat('#,##0.00').setHorizontalAlignment('right')
-      .setBorder(true, true, true, true, false, false, '#9db8ca', SpreadsheetApp.BorderStyle.DASHED);
-    hoja.getRange('C4').setDataValidation(SpreadsheetApp.newDataValidation()
-      .requireNumberGreaterThanOrEqualTo(0).setAllowInvalid(false)
-      .setHelpText('Ingresá el importe entregado (solo número).').build());
-    hoja.getRange('D4').setBackground('#FFFFFF').setFontWeight('bold').setHorizontalAlignment('center')
-      .setBorder(true, true, true, true, false, false, '#9db8ca', SpreadsheetApp.BorderStyle.DASHED)
+    const AMAR = '#FFF3B0';       // amarillo "completar acá"
+    const AMAR_SUAVE = '#FFFDF0'; // fondo del cartelito
+    // Etiqueta
+    hoja.getRange('A4:B4').merge().setValue('💵 EFECTIVO ENTREGADO')
+      .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(10)
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+    // Celda del monto (amarilla, para completar)
+    hoja.getRange('C4').setBackground(AMAR).setFontColor(CLR_TEXTO).setFontWeight('bold')
+      .setNumberFormat('#,##0.00').setHorizontalAlignment('right').setVerticalAlignment('middle')
+      .setBorder(true, true, true, true, false, false, '#E6C200', SpreadsheetApp.BorderStyle.SOLID_THICK)
+      .setNote('Escribí acá el efectivo que te entregaron para esta caja.')
+      .setDataValidation(SpreadsheetApp.newDataValidation()
+        .requireNumberGreaterThanOrEqualTo(0).setAllowInvalid(false)
+        .setHelpText('Escribí el efectivo entregado (solo número).').build());
+    // Moneda entregada (amarilla, desplegable)
+    hoja.getRange('D4').setBackground(AMAR).setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle')
+      .setBorder(true, true, true, true, false, false, '#E6C200', SpreadsheetApp.BorderStyle.SOLID_THICK)
       .setDataValidation(SpreadsheetApp.newDataValidation()
         .requireValueInList(PRIORIDAD_MONEDA, true).setAllowInvalid(true)
         .setHelpText('Elegí la moneda entregada.').build());
-    hoja.getRange('E4:F4').merge().setValue('SALDO A DEVOLVER')
-      .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(9)
-      .setHorizontalAlignment('left').setVerticalAlignment('middle');
+    // Cartelito guía (apunta a las celdas amarillas)
+    hoja.getRange('E4:G4').merge().setValue('👈 Escribí en amarillo el efectivo que te dieron. El saldo se calcula solo.')
+      .setBackground(AMAR_SUAVE).setFontColor('#8a6d00').setFontStyle('italic').setFontSize(9)
+      .setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true);
+    // Saldo a devolver (resultado)
+    hoja.getRange('H4:I4').merge().setValue('SALDO A DEVOLVER')
+      .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(10)
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
     const fSaldo = '=IF(OR($C$4=""' + s + '$D$4="")' + s + '""' + s + '$C$4-SUMIF(' + rMonT + s + '$D$4' + s + rImpT + '))';
-    hoja.getRange('G4').setFormula(fSaldo).setNumberFormat('#,##0.00')
+    hoja.getRange('J4').setFormula(fSaldo).setNumberFormat('#,##0.00')
       .setBackground(CLR_ORANGE).setFontColor('#FFFFFF').setFontWeight('bold')
       .setHorizontalAlignment('right').setVerticalAlignment('middle');
-    hoja.setRowHeight(4, 30);
+    hoja.setRowHeight(4, 34);
   }
 
   hoja.getRange(HEADER_ROW, 1, 1, n).setValues([headers])

@@ -140,7 +140,7 @@
       <div class="home-extra">
         <button class="guia-link" onclick="go('guia')">📖 Guía de uso</button>
         <button class="guia-link" style="margin-top:10px;" onclick="verNovedades()">✨ Novedades</button>
-        <div class="appver" id="appver">Versión 1.2</div>
+        <div class="appver" id="appver">Versión 1.2.1</div>
       </div>
     </div>
   </section>
@@ -340,7 +340,7 @@
   <!-- Modal Novedades -->
   <div class="modal-bg" id="novedades">
     <div class="modal" style="max-width:400px;">
-      <div class="nov-top"><div class="t">✨ Novedades</div><div class="v" id="nov-ver">Versión 1.2</div></div>
+      <div class="nov-top"><div class="t">✨ Novedades</div><div class="v" id="nov-ver">Versión 1.2.1</div></div>
       <ul class="nov-list" id="nov-list"></ul>
       <button class="m1" id="novOk" style="width:100%;">¡Entendido!</button>
     </div>
@@ -363,9 +363,9 @@
     document.querySelectorAll('[data-logo]').forEach(function(i){i.src=LOGO;});
 
     // ── Versión de la app + Novedades ────────────────────────────────
-    var APP_VERSION = '1.2';
+    var APP_VERSION = '1.2.1';
     var CHANGELOG = {
-      '1.2': [
+      '1.2.1': [
         ['🔄','Podés <b>volver a leer</b> un comprobante si la IA leyó mal, y <b>✕ cancelarlo</b> si te equivocaste de archivo.'],
         ['➖','<b>Notas de crédito / devoluciones</b> (Tarjeta): se marcan y <b>restan</b> del total.'],
         ['💵','<b>Caja Chica:</b> ahora podés cargar el <b>importe entregado</b> y ver el <b>saldo a devolver</b>.'],
