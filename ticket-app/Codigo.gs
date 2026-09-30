@@ -161,7 +161,7 @@ function etiquetaVto_(v) {
   return f ? nombreMesAnio_(f) : s;
 }
 function solapaParaFecha_(fechaStr) {
-  const parsed = parseFecha_(fechaStr);
+  const parsed = fechaGastoDate_(fechaStr); // día/mes leídos, pero SIEMPRE año corriente
   const fechaOk = !!parsed;              // ¿se pudo leer la fecha?
   const f = parsed || new Date();
   const vtos = leerVtos_();
@@ -308,7 +308,7 @@ function procesarTicket(p) {
     }
 
     const monedaTxt = normalizarMoneda_(p.moneda);
-    const comun = [orden, normalizarFecha_(p.fecha), p.tipoComprobante || '', p.proveedor || '', importeNum, monedaTxt];
+    const comun = [orden, fechaGastoStr_(p.fecha), p.tipoComprobante || '', p.proveedor || '', importeNum, monedaTxt];
     const valores = esTarjeta
       ? comun.concat([p.titular || '', p.cco || '', p.cuenta || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado])
       : comun.concat([p.cco || '', p.cuenta || '', p.descripcion || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado]);
@@ -538,6 +538,21 @@ function parseFecha_(s) {
 }
 function diaFin_(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59); }
 
+// TODO gasto se computa al AÑO CORRIENTE: toma día y mes de la fecha, pero fuerza el año actual.
+function fechaGastoDate_(s) {
+  let d = parseFecha_(s);
+  if (!d) {
+    const m = String(s).match(/^\s*(\d{1,2})[\/\-.](\d{1,2})\s*$/); // por si viene solo DD/MM
+    if (m) d = new Date(2000, parseInt(m[2], 10) - 1, parseInt(m[1], 10));
+  }
+  if (!d) return null;
+  return new Date(new Date().getFullYear(), d.getMonth(), d.getDate());
+}
+function fechaGastoStr_(s) {
+  const d = fechaGastoDate_(s);
+  return d ? Utilities.formatDate(d, Session.getScriptTimeZone(), 'dd/MM/yyyy') : String(s == null ? '' : s).trim();
+}
+
 // ¿El tipo de comprobante es una Nota de crédito / devolución? (NC, NS, "nota de credito").
 function esNotaCredito_(tipo) {
   const t = String(tipo || '').toLowerCase().replace(/\./g, '').trim();
@@ -557,7 +572,7 @@ function normalizarFecha_(v) {
 function buscarDuplicado_(hoja, p, importeFirmado) {
   const last = hoja.getLastRow();
   if (last < FIRST_DATA_ROW) return null;
-  const fechaN = normalizarFecha_(p.fecha);
+  const fechaN = fechaGastoStr_(p.fecha); // comparar con año corriente forzado
   const provN = String(p.proveedor || '').trim().toLowerCase();
   const impN = (importeFirmado === undefined || importeFirmado === null) ? parseImporte_(p.importe) : importeFirmado;
   const monN = normalizarMoneda_(p.moneda);

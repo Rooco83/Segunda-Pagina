@@ -503,10 +503,16 @@
       google.script.run.withSuccessHandler(function(d){ llegoGemini(p,d); }).withFailureHandler(function(){ document.getElementById(p+'_estado').style.display='none'; abrirDatos(p); }).leerComprobante(st[p].img, st[p].mime);
     }
     function esNC(txt){ var t=String(txt||'').toLowerCase().replace(/\./g,'').trim(); return /nota\s*de\s*cr[eé]dito/.test(t)||t==='nc'||t==='ns'||/\bn\/?c\b/.test(t); }
+    // Todo gasto se computa al AÑO CORRIENTE: corrige el año que haya leído la IA.
+    function fechaAnioActual(s){
+      var m=String(s||'').match(/(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.]\d{2,4})?/);
+      if(!m) return s||'';
+      return ('0'+m[1]).slice(-2)+'/'+('0'+m[2]).slice(-2)+'/'+new Date().getFullYear();
+    }
     function llegoGemini(p,d){
       document.getElementById(p+'_estado').style.display='none';
       if(d && d.ok){
-        set(p+'_tipo',d.tipoComprobante); set(p+'_fecha',d.fecha); set(p+'_prov',d.proveedor);
+        set(p+'_tipo',d.tipoComprobante); set(p+'_fecha',fechaAnioActual(d.fecha)); set(p+'_prov',d.proveedor);
         document.getElementById(p+'_imp').value = fmtAR(d.importe); setMoneda(p,d.moneda||'ARS');
         // Tarjeta: si es Nota de crédito, marca "devolución" solo (se puede destildar).
         var dv=document.getElementById(p+'_devo'); if(dv) dv.checked = esNC(d.tipoComprobante);
