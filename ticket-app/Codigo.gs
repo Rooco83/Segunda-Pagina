@@ -413,7 +413,7 @@ function construirFormato_(hoja, nombreCtx, fechaCtx, headers) {
       .setBackground(AMAR_SUAVE).setFontColor('#8a6d00').setFontStyle('italic').setFontSize(9).setHorizontalAlignment('center');
     hoja.getRange('C7:D7').merge().setValue('monto + moneda')
       .setBackground(AMAR_SUAVE).setFontColor('#8a6d00').setFontStyle('italic').setFontSize(9).setHorizontalAlignment('center');
-    hoja.getRange('H7').setValue('= entregado − gastado')
+    hoja.getRange('H7').setNumberFormat('@').setValue(' = entregado − gastado') // espacio inicial: evita que se tome como fórmula
       .setFontColor('#8a6d00').setFontStyle('italic').setFontSize(9).setHorizontalAlignment('right');
     hoja.setRowHeight(6, 30); hoja.setRowHeight(7, 20);
   }
