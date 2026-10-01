@@ -372,76 +372,76 @@ function construirFormato_(hoja, nombreCtx, fechaCtx, headers) {
   hoja.getRange(5, 1, 1, n).merge().setValue('PLANILLA DE RENDICION')
     .setBackground(CLR_ORANGE).setFontColor('#FFFFFF').setFontWeight('bold').setHorizontalAlignment('center');
 
-  // Tira de TOTALES por moneda: UNA sola celda arriba, alineada a la izquierda, con fórmula viva.
-  // Muestra solo las monedas que tienen gastos y suma en vivo (incluye cargas manuales).
+  // Layout: en Caja Chica bajamos 2 filas para meter "Efectivo entregado" + su cartelito DEBAJO del título.
+  const totalRow = esCaja ? TOTAL_ROW + 2 : TOTAL_ROW;            // caja 8 / tarjeta 6
+  const headerRow = esCaja ? HEADER_ROW + 2 : HEADER_ROW;         // caja 9 / tarjeta 7
+  const firstData = esCaja ? FIRST_DATA_ROW + 2 : FIRST_DATA_ROW; // caja 10 / tarjeta 8
+
   const impColT = columnaLetra_(COL_IMPORTE), monColT = columnaLetra_(COL_MONEDA);
-  const rMonT = '$' + monColT + '$' + FIRST_DATA_ROW + ':$' + monColT; // $F$8:$F
-  const rImpT = '$' + impColT + '$' + FIRST_DATA_ROW + ':$' + impColT; // $E$8:$E
+  const rMonT = '$' + monColT + '$' + firstData + ':$' + monColT;
+  const rImpT = '$' + impColT + '$' + firstData + ':$' + impColT;
   const locT = (function () { try { return hoja.getParent().getSpreadsheetLocale(); } catch (e) { return ''; } })();
-  const sepT = (locT && locT.indexOf('en') === 0) ? ',' : ';';
-  // Detecta TODAS las monedas presentes (las fijas y cualquier custom cargada a mano o con "Otra")
-  // y arma "COD importe" por cada una, sumando en vivo.
-  const s = sepT;
+  const s = (locT && locT.indexOf('en') === 0) ? ',' : ';';
+
+  // CAJA CHICA: debajo del título → "Efectivo entregado" (fila 6, celdas AMARILLAS) + cartelito (fila 7).
+  if (esCaja) {
+    const AMAR = '#FFF3B0', AMAR_SUAVE = '#FFFDF0';
+    hoja.getRange('A6:B6').merge().setValue('💵 EFECTIVO ENTREGADO')
+      .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(10)
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+    hoja.getRange('C6').setBackground(AMAR).setFontColor(CLR_TEXTO).setFontWeight('bold')
+      .setNumberFormat('#,##0.00').setHorizontalAlignment('right').setVerticalAlignment('middle')
+      .setBorder(true, true, true, true, false, false, '#E6C200', SpreadsheetApp.BorderStyle.SOLID)
+      .setNote('Escribí acá el efectivo que te entregaron para esta caja.')
+      .setDataValidation(SpreadsheetApp.newDataValidation()
+        .requireNumberGreaterThanOrEqualTo(0).setAllowInvalid(false)
+        .setHelpText('Escribí el efectivo entregado (solo número).').build());
+    hoja.getRange('D6').setBackground(AMAR).setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle')
+      .setBorder(true, true, true, true, false, false, '#E6C200', SpreadsheetApp.BorderStyle.SOLID)
+      .setDataValidation(SpreadsheetApp.newDataValidation()
+        .requireValueInList(PRIORIDAD_MONEDA, true).setAllowInvalid(true)
+        .setHelpText('Elegí la moneda entregada.').build());
+    hoja.getRange('E6:G6').merge().setValue('SALDO A DEVOLVER')
+      .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(10)
+      .setHorizontalAlignment('center').setVerticalAlignment('middle');
+    const fSaldo = '=IF(OR($C$6=""' + s + '$D$6="")' + s + '""' + s + '$C$6-SUMIF(' + rMonT + s + '$D$6' + s + rImpT + '))';
+    hoja.getRange('H6').setFormula(fSaldo).setNumberFormat('#,##0.00')
+      .setBackground(CLR_ORANGE).setFontColor('#FFFFFF').setFontWeight('bold')
+      .setHorizontalAlignment('right').setVerticalAlignment('middle');
+    // Fila 7: cartelitos guía, sutiles (italic) debajo de cada casillero amarillo.
+    hoja.getRange('A7:B7').merge().setValue('👆 Escribí lo que te dieron')
+      .setBackground(AMAR_SUAVE).setFontColor('#8a6d00').setFontStyle('italic').setFontSize(9).setHorizontalAlignment('center');
+    hoja.getRange('C7:D7').merge().setValue('monto + moneda')
+      .setBackground(AMAR_SUAVE).setFontColor('#8a6d00').setFontStyle('italic').setFontSize(9).setHorizontalAlignment('center');
+    hoja.getRange('H7').setValue('= entregado − gastado')
+      .setFontColor('#8a6d00').setFontStyle('italic').setFontSize(9).setHorizontalAlignment('right');
+    hoja.setRowHeight(6, 30); hoja.setRowHeight(7, 20);
+  }
+
+  // Tira de TOTALES por moneda: UNA sola celda, fórmula viva (solo muestra monedas con gastos).
   const sumif = 'SUMIF(' + rMonT + s + 'c' + s + rImpT + ')';
   const lambda = 'LAMBDA(c' + s + 'c&" "&TEXT(' + sumif + s + '"#,##0.00"))';
   const uniq = 'UNIQUE(FILTER(' + rMonT + s + rMonT + '<>""))';
   const mapa = 'MAP(' + uniq + s + lambda + ')';
   const formulaTot = '="💰  TOTAL GASTADO:      "&IFERROR(TEXTJOIN("        "' + s + 'TRUE' + s + mapa + ')' + s + '"")';
-  hoja.getRange(TOTAL_ROW, 1, 1, n).merge()
+  hoja.getRange(totalRow, 1, 1, n).merge()
     .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(13)
     .setHorizontalAlignment('left').setVerticalAlignment('middle');
-  hoja.getRange(TOTAL_ROW, 1).setFormula(formulaTot);
-  hoja.setRowHeight(TOTAL_ROW, 40); // fila de totales más alta, para que resalte
+  hoja.getRange(totalRow, 1).setFormula(formulaTot);
+  hoja.setRowHeight(totalRow, 40);
 
-  // CAJA CHICA: fila 4 — "Efectivo entregado" (celda AMARILLA = completás vos) y "Saldo a devolver" (= entregado − gastado).
-  if (esCaja) {
-    const AMAR = '#FFF3B0';       // amarillo "completar acá"
-    const AMAR_SUAVE = '#FFFDF0'; // fondo del cartelito
-    // Etiqueta
-    hoja.getRange('A4:B4').merge().setValue('💵 EFECTIVO ENTREGADO')
-      .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(10)
-      .setHorizontalAlignment('center').setVerticalAlignment('middle');
-    // Celda del monto (amarilla, para completar)
-    hoja.getRange('C4').setBackground(AMAR).setFontColor(CLR_TEXTO).setFontWeight('bold')
-      .setNumberFormat('#,##0.00').setHorizontalAlignment('right').setVerticalAlignment('middle')
-      .setBorder(true, true, true, true, false, false, '#E6C200', SpreadsheetApp.BorderStyle.SOLID_THICK)
-      .setNote('Escribí acá el efectivo que te entregaron para esta caja.')
-      .setDataValidation(SpreadsheetApp.newDataValidation()
-        .requireNumberGreaterThanOrEqualTo(0).setAllowInvalid(false)
-        .setHelpText('Escribí el efectivo entregado (solo número).').build());
-    // Moneda entregada (amarilla, desplegable)
-    hoja.getRange('D4').setBackground(AMAR).setFontWeight('bold').setHorizontalAlignment('center').setVerticalAlignment('middle')
-      .setBorder(true, true, true, true, false, false, '#E6C200', SpreadsheetApp.BorderStyle.SOLID_THICK)
-      .setDataValidation(SpreadsheetApp.newDataValidation()
-        .requireValueInList(PRIORIDAD_MONEDA, true).setAllowInvalid(true)
-        .setHelpText('Elegí la moneda entregada.').build());
-    // Cartelito guía (apunta a las celdas amarillas)
-    hoja.getRange('E4:G4').merge().setValue('👈 Escribí en amarillo el efectivo que te dieron. El saldo se calcula solo.')
-      .setBackground(AMAR_SUAVE).setFontColor('#8a6d00').setFontStyle('italic').setFontSize(9)
-      .setHorizontalAlignment('left').setVerticalAlignment('middle').setWrap(true);
-    // Saldo a devolver (resultado)
-    hoja.getRange('H4:I4').merge().setValue('SALDO A DEVOLVER')
-      .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setFontSize(10)
-      .setHorizontalAlignment('center').setVerticalAlignment('middle');
-    const fSaldo = '=IF(OR($C$4=""' + s + '$D$4="")' + s + '""' + s + '$C$4-SUMIF(' + rMonT + s + '$D$4' + s + rImpT + '))';
-    hoja.getRange('J4').setFormula(fSaldo).setNumberFormat('#,##0.00')
-      .setBackground(CLR_ORANGE).setFontColor('#FFFFFF').setFontWeight('bold')
-      .setHorizontalAlignment('right').setVerticalAlignment('middle');
-    hoja.setRowHeight(4, 34);
-  }
-
-  hoja.getRange(HEADER_ROW, 1, 1, n).setValues([headers])
+  hoja.getRange(headerRow, 1, 1, n).setValues([headers])
     .setBackground(CLR_NAVY).setFontColor('#FFFFFF').setFontWeight('bold').setHorizontalAlignment('center');
 
-  hoja.setFrozenRows(HEADER_ROW);
+  hoja.setFrozenRows(headerRow);
   // Anchos fijos + texto que se ajusta dentro de la celda (wrap)
   for (var i = 0; i < n; i++) hoja.setColumnWidth(i + 1, ANCHO_COL[headers[i]] || 120);
-  hoja.getRange(HEADER_ROW, 1, hoja.getMaxRows() - HEADER_ROW + 1, n).setWrap(true);
+  hoja.getRange(headerRow, 1, hoja.getMaxRows() - headerRow + 1, n).setWrap(true);
 
   // Pre-formato de la zona de datos (gris, bordes, centrado) para que la carga MANUAL se vea IGUAL
   // que la del app desde la primera carga.
-  const filasZona = Math.min(200, hoja.getMaxRows() - FIRST_DATA_ROW + 1);
-  hoja.getRange(FIRST_DATA_ROW, 1, filasZona, n)
+  const filasZona = Math.min(200, hoja.getMaxRows() - firstData + 1);
+  hoja.getRange(firstData, 1, filasZona, n)
     .setBackground(CLR_GRIS).setFontColor(CLR_TEXTO)
     .setHorizontalAlignment('center').setVerticalAlignment('middle').setWrap(true)
     .setBorder(true, true, true, true, true, true, '#CBD2D9', SpreadsheetApp.BorderStyle.SOLID);
@@ -451,17 +451,17 @@ function construirFormato_(hoja, nombreCtx, fechaCtx, headers) {
   const reglaNum = SpreadsheetApp.newDataValidation()
     .requireNumberBetween(-999999999999, 999999999999).setAllowInvalid(false)
     .setHelpText('Ingresá solo el número del importe (negativo si es devolución).').build();
-  hoja.getRange(FIRST_DATA_ROW, COL_IMPORTE, filasZona, 1).setDataValidation(reglaNum).setNumberFormat('#,##0.00');
+  hoja.getRange(firstData, COL_IMPORTE, filasZona, 1).setDataValidation(reglaNum).setNumberFormat('#,##0.00');
   // MONEDA: desplegable con las monedas de la app.
   const reglaMon = SpreadsheetApp.newDataValidation()
     .requireValueInList(PRIORIDAD_MONEDA, true).setAllowInvalid(true)
     .setHelpText('Elegí la moneda de la lista.').build();
-  hoja.getRange(FIRST_DATA_ROW, COL_MONEDA, filasZona, 1).setDataValidation(reglaMon);
+  hoja.getRange(firstData, COL_MONEDA, filasZona, 1).setDataValidation(reglaMon);
 
   // Aviso automático: si hay IMPORTE pero falta la MONEDA, se pinta la celda de MONEDA en rojo
   // (ese gasto NO se suma al total hasta completar la moneda). Se enciende solo (formato condicional).
-  const rangoMon = hoja.getRange(FIRST_DATA_ROW, COL_MONEDA, filasZona, 1);
-  const formulaFalta = '=($' + impColT + FIRST_DATA_ROW + '<>"")*($' + monColT + FIRST_DATA_ROW + '="")'; // sin comas/;: a prueba de idioma
+  const rangoMon = hoja.getRange(firstData, COL_MONEDA, filasZona, 1);
+  const formulaFalta = '=($' + impColT + firstData + '<>"")*($' + monColT + firstData + '="")'; // sin comas/;: a prueba de idioma
   const reglaFalta = SpreadsheetApp.newConditionalFormatRule()
     .whenFormulaSatisfied(formulaFalta)
     .setBackground(CLR_ROJO_SUAVE).setFontColor('#B3261E')
@@ -471,11 +471,25 @@ function construirFormato_(hoja, nombreCtx, fechaCtx, headers) {
   hoja.setConditionalFormatRules(reglas);
 }
 
+// Detecta el layout real de la planilla (dónde está la fila ORDEN) para que Tarjeta y Caja —que tienen
+// distinta cantidad de filas arriba— funcionen igual. Devuelve { headerRow, firstDataRow }.
+function layoutHoja_(hoja) {
+  const nfilas = Math.min(15, hoja.getMaxRows());
+  const vals = hoja.getRange(1, 1, nfilas, 1).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    if (String(vals[i][0]).trim().toUpperCase() === 'ORDEN') {
+      return { headerRow: i + 1, firstDataRow: i + 2 };
+    }
+  }
+  return { headerRow: HEADER_ROW, firstDataRow: FIRST_DATA_ROW };
+}
+
 // Inserta una fila de datos al final. La tira de TOTALES es una fórmula fija que se actualiza sola.
 function agregarFila_(hoja, valores, monedaTxt) {
   const n = valores.length;
+  const FD = layoutHoja_(hoja).firstDataRow;
   const last = hoja.getLastRow();
-  const fila = (last < FIRST_DATA_ROW) ? FIRST_DATA_ROW : last + 1;
+  const fila = (last < FD) ? FD : last + 1;
   hoja.getRange(fila, 1, 1, n).setValues([valores]);
   hoja.getRange(fila, 1, 1, n)
     .setBackground(CLR_GRIS).setFontColor(CLR_TEXTO)
@@ -492,9 +506,10 @@ function columnaLetra_(num) {
 }
 
 function siguienteNumeroDeOrden_(hoja) {
+  const FD = layoutHoja_(hoja).firstDataRow;
   const last = hoja.getLastRow();
-  if (last < FIRST_DATA_ROW) return 1; // aún no hay datos
-  const vals = hoja.getRange(FIRST_DATA_ROW, 1, last - FIRST_DATA_ROW + 1, 1).getValues();
+  if (last < FD) return 1; // aún no hay datos
+  const vals = hoja.getRange(FD, 1, last - FD + 1, 1).getValues();
   let max = 0;
   vals.forEach(function (f) {
     if (String(f[0]).indexOf('TOTAL') === 0) return; // saltear filas de TOTAL por moneda
@@ -581,14 +596,15 @@ function normalizarFecha_(v) {
 // Busca si ya hay una fila con misma FECHA, PROVEEDOR, IMPORTE y MONEDA. Devuelve el ORDEN existente o null.
 // importeFirmado: el importe con signo (negativo si es devolución), para comparar bien.
 function buscarDuplicado_(hoja, p, importeFirmado) {
+  const FD = layoutHoja_(hoja).firstDataRow;
   const last = hoja.getLastRow();
-  if (last < FIRST_DATA_ROW) return null;
+  if (last < FD) return null;
   const fechaN = fechaGastoStr_(p.fecha); // comparar con año corriente forzado
   const provN = String(p.proveedor || '').trim().toLowerCase();
   const impN = (importeFirmado === undefined || importeFirmado === null) ? parseImporte_(p.importe) : importeFirmado;
   const monN = normalizarMoneda_(p.moneda);
   // Columnas: 1 ORDEN, 2 FECHA, 4 PROVEEDOR, 5 IMPORTE, 6 MONEDA
-  const datos = hoja.getRange(FIRST_DATA_ROW, 1, last - FIRST_DATA_ROW + 1, COL_MONEDA).getValues();
+  const datos = hoja.getRange(FD, 1, last - FD + 1, COL_MONEDA).getValues();
   for (var i = 0; i < datos.length; i++) {
     var r = datos[i];
     if (String(r[3]).trim() === '' && String(r[COL_MONEDA - 1]).trim() === '') continue; // fila vacía
