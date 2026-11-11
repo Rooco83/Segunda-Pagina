@@ -54,6 +54,9 @@ abre la URL hasta que se arma la planilla.
   3. Carpeta + solapa:
      - Tarjeta → **`getOrCreateSubcarpeta_()`** (`Tarjeta/<iniciales>`) + **`solapaParaFecha_()`**
        (usa **`leerVtos_()`** → pestaña **VTOs**) para la solapa (o el mes del gasto)
+     - Tarjeta, desde 2027: carpeta y planilla **por año** (`Tarjeta/<iniciales>/2027/Rendicion <iniciales> 2027`).
+       El año lo define la solapa (vencimiento), no la fecha del ticket. 2026 queda como estaba.
+       Los vencimientos se leen de todas las solapas que empiecen con `VTOs` (ej: `VTOs`, `VTOs 2027`).
      - Caja → `getOrCreateSubcarpeta_()` (`Caja Chica/<CCO>`) + solapa "Gastos"
   4. **`getSpreadsheetIn_()`** → busca o **crea la planilla** (`SpreadsheetApp.create` + `DriveApp.moveTo`)
   5. **`getOrCreateHoja_()`** → busca/crea la solapa; si es nueva, **`construirFormato_()`** arma el formato

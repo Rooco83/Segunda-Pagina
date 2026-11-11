@@ -25,6 +25,9 @@ const CONFIG = {
   // Carpeta "Rendiciones" DENTRO de la Unidad compartida (pegá su ID).
   ROOT_FOLDER_ID: '1_kkBOM3lXaF7A7TLBFfHbXZOXsyYOdAr',
   SUB_TARJETA: 'Tarjeta',
+  // TARJETA: desde este año, cada año tiene SU carpeta y SU planilla (Tarjeta/<INI>/2027/Rendicion <INI> 2027).
+  // Los años anteriores quedan como estaban (Tarjeta/<INI>/Rendicion <INI>).
+  TARJETA_ANUAL_DESDE: 2027,
   SUB_CAJA:    'Caja Chica',
   SOLAPA_CAJA: 'Gastos',
   CARPETA_IMAGENES: 'Imágenes',
@@ -101,7 +104,7 @@ function getOpciones() {
 
 // Memoria corta del script (CacheService). Si falla por cualquier motivo, la app sigue leyendo la planilla.
 const CACHE_OPCIONES = 'opciones_v1';
-const CACHE_VTOS = 'vtos_v1';
+const CACHE_VTOS = 'vtos_v2';
 const CACHE_SEGUNDOS = 600; // 10 minutos
 function cacheLeer_(clave) {
   try {
@@ -161,10 +164,15 @@ function leerVtos_() {
   }
   return lista;
 }
+// Lee TODAS las solapas cuyo nombre empiece con "VTOs" (ej: "VTOs", "VTOs 2027", "VTOs 2028"):
+// así cada año puede tener su propia solapa y tocar/borrar una no afecta a las otras.
 function leerVtosDePlanilla_() {
-  const hoja = abrirInfo_().getSheetByName(CONFIG.TAB_VTOS);
-  if (!hoja || hoja.getLastRow() === 0) return [];
-  const vals = hoja.getRange(1, 1, hoja.getLastRow(), 2).getValues();
+  const prefijo = CONFIG.TAB_VTOS.toLowerCase();
+  let vals = [];
+  abrirInfo_().getSheets().forEach(function (hoja) {
+    if (hoja.getName().trim().toLowerCase().indexOf(prefijo) !== 0 || hoja.getLastRow() === 0) return;
+    vals = vals.concat(hoja.getRange(1, 1, hoja.getLastRow(), 2).getValues());
+  });
   const lista = [];
   vals.forEach(function (f) {
     const etiqueta = etiquetaVto_(f[0]);
@@ -178,7 +186,7 @@ function leerVtosDePlanilla_() {
   return lista;
 }
 
-// Devuelve { solapa, enVto } para una fecha DD/MM/AAAA.
+// Devuelve { solapa, enVto, fechaOk, anio } para una fecha DD/MM/AAAA.
 // Si cae dentro de un vencimiento → esa etiqueta. Si no → el mes/año del gasto (para revisar).
 const MESES_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 function nombreMesAnio_(d) { return MESES_ES[d.getMonth()] + ' ' + d.getFullYear(); }
@@ -195,9 +203,17 @@ function solapaParaFecha_(fechaStr) {
   const f = parsed || new Date();
   const vtos = leerVtos_();
   for (var i = 0; i < vtos.length; i++) {
-    if (f >= vtos[i].desde && f <= diaFin_(vtos[i].hasta)) return { solapa: vtos[i].etiqueta, enVto: true, fechaOk: fechaOk };
+    if (f >= vtos[i].desde && f <= diaFin_(vtos[i].hasta)) {
+      return { solapa: vtos[i].etiqueta, enVto: true, fechaOk: fechaOk, anio: anioDeVto_(vtos[i]) };
+    }
   }
-  return { solapa: nombreMesAnio_(f), enVto: false, fechaOk: fechaOk };
+  return { solapa: nombreMesAnio_(f), enVto: false, fechaOk: fechaOk, anio: f.getFullYear() };
+}
+// Año al que pertenece un vencimiento: el que figura en su etiqueta ("Enero 2027"); si no tiene, el de su fecha "hasta".
+// Así los gastos de fines de diciembre que entran en el vencimiento de enero van a la planilla del año nuevo.
+function anioDeVto_(v) {
+  const m = String(v.etiqueta).match(/\b(20\d{2})\b/);
+  return m ? parseInt(m[1], 10) : v.hasta.getFullYear();
 }
 
 
@@ -279,9 +295,13 @@ function procesarTicket(p) {
     if (esTarjeta) {
       const ini = limpiarNombre_(p.iniciales || '');
       if (!ini) return { ok: false, error: 'Elegí un titular de tarjeta.' };
+      const info = solapaParaFecha_(p.fecha);
       carpetaDestino = getOrCreateSubcarpeta_(getOrCreateSubcarpeta_(root, CONFIG.SUB_TARJETA), ini);
       ssName = 'Rendicion ' + ini;
-      const info = solapaParaFecha_(p.fecha);
+      if (info.anio >= CONFIG.TARJETA_ANUAL_DESDE) { // planilla y carpeta propias del año (lo define la SOLAPA)
+        carpetaDestino = getOrCreateSubcarpeta_(carpetaDestino, String(info.anio));
+        ssName = 'Rendicion ' + ini + ' ' + info.anio;
+      }
       solapa = info.solapa;
       fueraDeVto = !info.enVto;
       fechaIlegible = !info.fechaOk;
