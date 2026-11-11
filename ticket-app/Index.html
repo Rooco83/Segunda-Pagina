@@ -371,6 +371,7 @@
       '1.2.2': [
         ['⚡','La app <b>abre más rápido</b> y guarda un poco más ágil.'],
         ['💬','Si la IA <b>no puede leer</b> el comprobante, ahora te <b>avisa</b> para que lo vuelvas a leer o lo completes a mano.'],
+        ['🎯','Si <b>cancelás o cambiás</b> el comprobante mientras se lee, la app completa <b>solo con el último que subiste</b>.'],
         ['📄','Si un <b>PDF es demasiado pesado</b>, te avisa antes de subirlo (podés sacarle una foto o captura).'],
         ['🔢','<b>Importes con punto decimal</b> (ej: 1500.50) se guardan bien, ya no se agrandan.'],
         ['🗓️','<b>Cambio de año:</b> un ticket de diciembre cargado en enero queda en el año que corresponde.'],
@@ -412,7 +413,9 @@
       document.getElementById('gp_c').classList.toggle('on', w==='c');
     }
     var CUENTAS = [], CCOS = [];
-    var st = { t: {img:null, mime:null}, c: {img:null, mime:null} };
+    // seq: número de la lectura vigente. Cada archivo nuevo, re-lectura o cancelación lo sube; así una
+    // respuesta de la IA que llega tarde (de un comprobante ya cancelado/reemplazado) se descarta.
+    var st = { t: {img:null, mime:null, seq:0}, c: {img:null, mime:null, seq:0} };
 
     // Carga inicial (splash → home cuando llegan las opciones)
     google.script.run.withSuccessHandler(iniciar).withFailureHandler(function(e){ iniciar({ccos:[],cuentas:[],titulares:[],aviso:'No se pudo cargar la info: '+(e.message||e)}); }).getOpciones();
@@ -498,6 +501,7 @@
         alert('⚠️ Ese archivo pesa '+(f.size/1048576).toFixed(1)+' MB y el máximo es '+MAX_ARCHIVO_MB+' MB.\n\nSacale una foto o una captura de pantalla al comprobante y subí eso.');
         return;
       }
+      var tk=++st[p].seq; // este archivo pasa a ser el vigente
       document.getElementById(p+'_fname').innerHTML='✓ '+escapeHtml_(f.name)+' <span class="cancelx" title="Cancelar este comprobante" onclick="cancelarComprobante(\''+p+'\')">✕</span>';
       var esImagen = /^image\//.test(f.type||'');
       var rd=new FileReader();
@@ -510,21 +514,31 @@
             if(w>max||h>max){ var e=max/Math.max(w,h); w=Math.round(w*e); h=Math.round(h*e); }
             var cv=document.createElement('canvas'); cv.width=w; cv.height=h;
             cv.getContext('2d').drawImage(img,0,0,w,h);
-            enviarAGemini(p, cv.toDataURL('image/jpeg',0.85).split(',')[1], 'image/jpeg');
+            enviarAGemini(p, cv.toDataURL('image/jpeg',0.85).split(',')[1], 'image/jpeg', tk);
           };
-          img.onerror=function(){ enviarAGemini(p, ev.target.result.split(',')[1], f.type||'application/octet-stream'); };
+          img.onerror=function(){ enviarAGemini(p, ev.target.result.split(',')[1], f.type||'application/octet-stream', tk); };
           img.src=ev.target.result;
         } else {
           // PDF u otro archivo: lo mandamos tal cual, con su tipo real
-          enviarAGemini(p, ev.target.result.split(',')[1], f.type||'application/pdf');
+          enviarAGemini(p, ev.target.result.split(',')[1], f.type||'application/pdf', tk);
         }
       };
       rd.readAsDataURL(f);
     }
-    function enviarAGemini(p, base64, mime){
+    function enviarAGemini(p, base64, mime, tk){
+      if(tk!==st[p].seq) return; // lo cancelaron o subieron otro mientras se preparaba el archivo
       st[p].img=base64; st[p].mime=mime;
+      pedirLectura(p, tk);
+    }
+    // Pide la lectura a la IA. Solo se acepta la respuesta si sigue siendo la lectura vigente (tk).
+    function pedirLectura(p, tk){
+      avisoNoLee(p,false);
+      document.getElementById(p+'_datos').style.display='none';
       document.getElementById(p+'_estado').style.display='block';
-      google.script.run.withSuccessHandler(function(d){ llegoGemini(p,d); }).withFailureHandler(function(){ llegoGemini(p,null); }).leerComprobante(st[p].img, st[p].mime);
+      google.script.run
+        .withSuccessHandler(function(d){ if(tk===st[p].seq) llegoGemini(p,d); })
+        .withFailureHandler(function(){ if(tk===st[p].seq) llegoGemini(p,null); })
+        .leerComprobante(st[p].img, st[p].mime);
     }
     function esNC(txt){ var t=String(txt||'').toLowerCase().replace(/\./g,'').trim(); return /nota\s*de\s*cr[eé]dito/.test(t)||t==='nc'||t==='ns'||/\bn\/?c\b/.test(t); }
     // Todo gasto se computa al AÑO CORRIENTE: corrige el año que haya leído la IA.
@@ -588,10 +602,7 @@
     // Vuelve a pasar el MISMO comprobante por Gemini (para corregir una lectura mala).
     function volverALeer(p){
       if(!st[p].img){ return; }
-      avisoNoLee(p,false);
-      document.getElementById(p+'_datos').style.display='none';
-      document.getElementById(p+'_estado').style.display='block';
-      google.script.run.withSuccessHandler(function(d){ llegoGemini(p,d); }).withFailureHandler(function(){ llegoGemini(p,null); }).leerComprobante(st[p].img, st[p].mime);
+      pedirLectura(p, ++st[p].seq);
     }
     // Cancela el comprobante subido (por si te equivocaste de archivo): borra la lectura y vuelve a subir.
     function cancelarComprobante(p){
@@ -607,7 +618,8 @@
       var a=document.getElementById(p+'_foto'); if(a) a.value='';
       var b=document.getElementById(p+'_foto_gal'); if(b) b.value='';
       var fn=document.getElementById(p+'_fname'); if(fn) fn.textContent='';
-      st[p].img=null; st[p].mime=null;
+      st[p].img=null; st[p].mime=null; st[p].seq++; // invalida cualquier lectura en curso
+      document.getElementById(p+'_estado').style.display='none';
       avisoNoLee(p,false);
     }
     function manual(p){ limpiarFoto(p); abrirDatos(p); document.getElementById(p+'_imp').focus(); }
