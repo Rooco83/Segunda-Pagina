@@ -154,6 +154,13 @@
     .btn.otro{background:linear-gradient(180deg,#f76b38 0%,var(--orange) 100%);}
     .toast{border-radius:999px;padding:12px 20px;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;}
     .modal{border-radius:18px;box-shadow:0 18px 50px rgba(0,0,0,.28);}
+    /* Novedades: la ventana entra siempre en la pantalla; la lista se desliza y el botón queda fijo abajo */
+    #novedades{padding:14px;}
+    #novedades .modal{display:flex;flex-direction:column;max-height:88vh;max-height:calc(100dvh - 28px);overflow:hidden;padding:18px;}
+    #novedades .nov-top{flex:none;margin:-18px -18px 12px;padding:14px 18px;}
+    #novedades .nov-list{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -6px 12px 0;padding-right:6px;}
+    #novedades .nov-list li{font-size:.86rem;margin-bottom:10px;}
+    #novedades #novOk{flex:none;}
   </style>
 </head>
 <body>
