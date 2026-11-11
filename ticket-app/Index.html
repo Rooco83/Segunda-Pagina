@@ -119,6 +119,41 @@
     .gcallout .gopt:last-child{margin-bottom:0;}
     .gcallout .gopt b{color:var(--navy);}
     .gnote{font-size:.82rem;color:#6b7280;margin-top:10px;background:var(--gris);border-radius:10px;padding:9px 11px;}
+    /* ── Retoque estético 1.2.3 (solo estilos: no cambia el funcionamiento) ── */
+    body{background:#f3f5f7;}
+    .full-navy{background:radial-gradient(120% 70% at 50% 0%,#0b3d5e 0%,var(--navy) 62%);}
+    .full-navy h1{letter-spacing:.01em;}
+    .home-btn{border-radius:18px;padding:19px 20px;transition:transform .12s ease,box-shadow .12s ease;}
+    .home-btn.tarjeta{background:linear-gradient(180deg,#f76b38 0%,var(--orange) 100%);box-shadow:0 8px 22px rgba(241,90,36,.38);}
+    .home-btn.caja{box-shadow:0 8px 22px rgba(0,0,0,.18);}
+    .home-btn:active,.btn:active{transform:scale(.98);}
+    .guia-link{border-width:1px;border-color:rgba(255,255,255,.22);background:rgba(255,255,255,.06);border-radius:999px;padding:12px;font-size:.92rem;font-weight:600;}
+    header{box-shadow:0 2px 12px rgba(0,38,62,.18);}
+    .back{border-radius:50%;width:32px;height:32px;padding:0;}
+    main{background:#fff;border-radius:18px;padding:4px 14px 18px;margin:10px auto 30px;box-shadow:0 2px 14px rgba(0,38,62,.07);width:calc(100% - 16px);}
+    label{font-size:.8rem;font-weight:700;letter-spacing:.02em;margin:18px 0 6px;}
+    select,textarea,input{border-radius:10px;padding:12px 13px;border-color:#dfe4e9;background-color:#fafbfc;transition:border-color .15s ease,box-shadow .15s ease,background-color .15s ease;}
+    select:focus,textarea:focus,input:focus{background-color:#fff;}
+    input::placeholder,textarea::placeholder{color:#a3acb5;}
+    .upload{border:1.5px dashed #c4ccd4;border-radius:14px;background:#f7f9fb;padding:14px;}
+    .upbtn{border-radius:10px;padding:14px 10px;}
+    .upbtn.gal{border-width:1px;}
+    .datos{background:#fff;border:1px solid #e3e8ed;border-left:4px solid var(--orange);border-radius:12px;box-shadow:0 2px 10px rgba(0,38,62,.05);}
+    .datos{padding:13px 12px;}
+    .datos h4{font-size:.92rem;white-space:nowrap;}
+    .datos label{font-size:.68rem;letter-spacing:.02em;white-space:nowrap;}
+    .datos input,.datos select{background-color:#fafbfc;}
+    .datos label.devo-toggle{white-space:normal;font-size:.72rem;}
+    .datos select{padding-right:34px;background-position:right 9px center;background-size:17px 17px;text-overflow:ellipsis;}
+    .datos .grid > div:has(> select){grid-column:1 / -1;}
+    .linkbtn{font-size:.84rem;}
+    .devo-toggle{border-radius:10px;}
+    .lista{border-radius:10px;}
+    .acciones{gap:10px;margin-top:24px;}
+    .btn{border-radius:12px;padding:15px 12px;font-size:.95rem;transition:transform .12s ease;}
+    .btn.otro{background:linear-gradient(180deg,#f76b38 0%,var(--orange) 100%);}
+    .toast{border-radius:999px;padding:12px 20px;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;}
+    .modal{border-radius:18px;box-shadow:0 18px 50px rgba(0,0,0,.28);}
   </style>
 </head>
 <body>
@@ -366,9 +401,10 @@
     document.querySelectorAll('[data-logo]').forEach(function(i){i.src=LOGO;});
 
     // ── Versión de la app + Novedades ────────────────────────────────
-    var APP_VERSION = '1.2.2';
+    var APP_VERSION = '1.2.3';
     var CHANGELOG = {
-      '1.2.2': [
+      '1.2.3': [
+        ['🎨','<b>Nuevo look:</b> pantallas más prolijas, casillas más finas y la <b>moneda</b> ya no se corta.'],
         ['⚡','La app <b>abre más rápido</b> y guarda un poco más ágil.'],
         ['💬','Si la IA <b>no puede leer</b> el comprobante, ahora te <b>avisa</b> para que lo vuelvas a leer o lo completes a mano.'],
         ['🎯','Si <b>cancelás o cambiás</b> el comprobante mientras se lee, la app completa <b>solo con el último que subiste</b>.'],
