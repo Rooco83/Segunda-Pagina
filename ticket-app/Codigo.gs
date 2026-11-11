@@ -87,12 +87,30 @@ function doGet() {
 //  2) Datos para los desplegables (se llama al abrir la app)
 // ─────────────────────────────────────────────────────────────────────────
 function getOpciones() {
+  // Memoria corta (10 min): evita releer la planilla de info cada vez que alguien abre la app.
+  const enMemoria = cacheLeer_(CACHE_OPCIONES);
+  if (enMemoria && enMemoria.ccos && enMemoria.cuentas && enMemoria.titulares) return enMemoria;
   const res = { ccos: [], cuentas: [], titulares: [], aviso: '' };
   try { res.ccos = leerCCOs_(); } catch (e) { res.aviso += 'CCOs. '; }
   try { res.cuentas = leerCuentas_(); } catch (e) { res.aviso += 'Cuentas. '; }
   try { res.titulares = leerTitulares_(); } catch (e) { res.aviso += 'Titulares. '; }
   if (res.aviso) res.aviso = 'No se pudieron leer: ' + res.aviso + 'Revisá el ID/solapas de la planilla.';
+  else cacheGuardar_(CACHE_OPCIONES, res); // solo se guarda si se leyó todo bien
   return res;
+}
+
+// Memoria corta del script (CacheService). Si falla por cualquier motivo, la app sigue leyendo la planilla.
+const CACHE_OPCIONES = 'opciones_v1';
+const CACHE_VTOS = 'vtos_v1';
+const CACHE_SEGUNDOS = 600; // 10 minutos
+function cacheLeer_(clave) {
+  try {
+    const txt = CacheService.getScriptCache().get(clave);
+    return txt ? JSON.parse(txt) : null;
+  } catch (e) { return null; }
+}
+function cacheGuardar_(clave, valor) {
+  try { CacheService.getScriptCache().put(clave, JSON.stringify(valor), CACHE_SEGUNDOS); } catch (e) {}
 }
 
 function abrirInfo_() { return SpreadsheetApp.openById(CONFIG.INFO_SHEET_ID); }
@@ -133,6 +151,17 @@ function leerTitulares_() {
 
 // VTOs: A = etiqueta ("agosto 2026"), B = "dd/mm/aaaa - dd/mm/aaaa"
 function leerVtos_() {
+  const mem = cacheLeer_(CACHE_VTOS);
+  if (mem && mem.length) {
+    return mem.map(function (v) { return { etiqueta: v.etiqueta, desde: new Date(v.desde), hasta: new Date(v.hasta) }; });
+  }
+  const lista = leerVtosDePlanilla_();
+  if (lista.length) {
+    cacheGuardar_(CACHE_VTOS, lista.map(function (v) { return { etiqueta: v.etiqueta, desde: v.desde.getTime(), hasta: v.hasta.getTime() }; }));
+  }
+  return lista;
+}
+function leerVtosDePlanilla_() {
   const hoja = abrirInfo_().getSheetByName(CONFIG.TAB_VTOS);
   if (!hoja || hoja.getLastRow() === 0) return [];
   const vals = hoja.getRange(1, 1, hoja.getLastRow(), 2).getValues();
@@ -308,18 +337,18 @@ function procesarTicket(p) {
     }
 
     const monedaTxt = normalizarMoneda_(p.moneda);
-    const comun = [orden, fechaGastoStr_(p.fecha), p.tipoComprobante || '', p.proveedor || '', importeNum, monedaTxt];
+    const T = textoSeguro_; // los textos se guardan como TEXTO (un "+54…" o "=…" no se toma como número/fórmula)
+    const comun = [orden, fechaGastoStr_(p.fecha), T(p.tipoComprobante), T(p.proveedor), importeNum, monedaTxt];
     const valores = esTarjeta
-      ? comun.concat([p.titular || '', p.cco || '', p.cuenta || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado])
-      : comun.concat([p.cco || '', p.cuenta || '', p.descripcion || '', p.quienGasto || '', p.comentario || '', link, new Date(), estado]);
+      ? comun.concat([T(p.titular), T(p.cco), T(p.cuenta), T(p.quienGasto), T(p.comentario), link, new Date(), estado])
+      : comun.concat([T(p.cco), T(p.cuenta), T(p.descripcion), T(p.quienGasto), T(p.comentario), link, new Date(), estado]);
     const filaNueva = agregarFila_(hoja, valores, monedaTxt);
     if (fueraDeVto || dupOrden || fechaIlegible) hoja.getRange(filaNueva, valores.length).setBackground(CLR_ROJO_SUAVE);
 
     return {
       ok: true, orden: ordenTxt, tipo: p.tipo, titular: p.titular || '', cco: p.cco || '',
       solapa: solapa, proveedor: p.proveedor || '', importe: p.importe || '', moneda: monedaTxt,
-      estado: estado, carpetaUrl: carpetaDestino.getUrl(), hojaUrl: ss.getUrl(),
-      carpetaRuta: rutaCarpeta_(carpetaDestino)
+      estado: estado, carpetaUrl: carpetaDestino.getUrl(), hojaUrl: ss.getUrl()
     };
   } catch (e) {
     return { ok: false, error: e.message };
@@ -565,6 +594,8 @@ function parseFecha_(s) {
 function diaFin_(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59); }
 
 // TODO gasto se computa al AÑO CORRIENTE: toma día y mes de la fecha, pero fuerza el año actual.
+// Única excepción (cambio de año): si así quedara más de un mes en el FUTURO (ej: ticket del 28/12
+// cargado en enero), corresponde al año anterior.
 function fechaGastoDate_(s) {
   let d = parseFecha_(s);
   if (!d) {
@@ -572,7 +603,10 @@ function fechaGastoDate_(s) {
     if (m) d = new Date(2000, parseInt(m[2], 10) - 1, parseInt(m[1], 10));
   }
   if (!d) return null;
-  return new Date(new Date().getFullYear(), d.getMonth(), d.getDate());
+  const hoy = new Date();
+  const res = new Date(hoy.getFullYear(), d.getMonth(), d.getDate());
+  const limite = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 31);
+  return (res > limite) ? new Date(hoy.getFullYear() - 1, d.getMonth(), d.getDate()) : res;
 }
 function fechaGastoStr_(s) {
   const d = fechaGastoDate_(s);
@@ -621,11 +655,19 @@ function buscarDuplicado_(hoja, p, importeFirmado) {
 // Convierte "10.000,00" / "10000.00" / 10000 a número.
 // Formato ARGENTINO: el punto (.) es separador de miles y la coma (,) el decimal.
 // Ej: "128.400" -> 128400 ; "1.234,56" -> 1234.56 ; "128400" -> 128400.
+// Excepción: punto decimal tipeado a mano con 1 o 2 decimales ("1500.50" -> 1500.5) y formato
+// inglés ("1,234.56" -> 1234.56). Con 3 dígitos después del punto sigue siendo miles.
 function parseImporte_(v) {
   if (typeof v === 'number') return v;
   let s = String(v == null ? '' : v).replace(/[^\d.,-]/g, '');
   if (s === '') return '';
-  s = s.replace(/\./g, '').replace(',', '.');
+  if (/^-?\d+\.\d{1,2}$/.test(s)) {
+    // un solo punto con 1-2 decimales y sin coma: es decimal, se deja como está
+  } else if (/^-?\d{1,3}(,\d{3})+\.\d+$/.test(s)) {
+    s = s.replace(/,/g, ''); // formato inglés: la coma separa miles
+  } else {
+    s = s.replace(/\./g, '').replace(',', '.');
+  }
   const n = parseFloat(s);
   return isNaN(n) ? '' : n;
 }
@@ -652,11 +694,11 @@ function normalizarMoneda_(txt) {
 
 function agregarAviso_(estado, aviso) { return estado === 'OK' ? ('Revisar: ' + aviso) : (estado + '; ' + aviso); }
 
-function rutaCarpeta_(folder) {
-  const partes = [folder.getName()];
-  let padres = folder.getParents();
-  while (padres.hasNext()) { const p = padres.next(); partes.unshift(p.getName()); padres = p.getParents(); }
-  return partes.join(' ▸ ');
+// Devuelve el texto listo para escribir en la planilla. Si empieza con = + - o @, le antepone un
+// apóstrofo (Sheets no lo muestra) para que quede como TEXTO y no se interprete como fórmula o número.
+function textoSeguro_(v) {
+  const s = String(v == null ? '' : v);
+  return /^\s*[=+\-@]/.test(s) ? "'" + s : s;
 }
 
 function limpiarNombre_(t) {

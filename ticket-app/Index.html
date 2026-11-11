@@ -76,6 +76,7 @@
     .lista div:hover{background:#eaf1f6;}
     .lista div.active{background:var(--navy);color:#fff;}
     .elegido{font-size:.8rem;color:var(--navy);font-weight:600;margin-top:5px;display:none;}
+    .nolee{display:none;background:#FFF8E1;border:1px solid #F1D48A;color:#7a5b00;border-radius:10px;padding:9px 11px;font-size:.84rem;margin:0 0 10px;line-height:1.35;}
     .estado{margin-top:14px;text-align:center;font-weight:600;color:var(--navy);display:none;}
     .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:12px 18px;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.25);z-index:30;display:none;font-weight:600;}
     /* Modal */
@@ -180,6 +181,7 @@
           <button type="button" class="relee" id="t_relee" onclick="volverALeer('t')">🔄 Volver a leer</button>
         </h4>
         <p class="sub">Revisá y corregí lo que haga falta.</p>
+        <div class="nolee" id="t_noLee">⚠️ <b>No pude leer el comprobante.</b> Tocá <b>🔄 Volver a leer</b> o completá los datos a mano.</div>
         <div class="grid">
           <div class="full"><label>Tipo de comprobante</label><input id="t_tipo"></div>
           <div><label>Fecha (DD/MM/AAAA)</label><input id="t_fecha"></div>
@@ -248,6 +250,7 @@
           <button type="button" class="relee" id="c_relee" onclick="volverALeer('c')">🔄 Volver a leer</button>
         </h4>
         <p class="sub">Revisá y corregí lo que haga falta.</p>
+        <div class="nolee" id="c_noLee">⚠️ <b>No pude leer el comprobante.</b> Tocá <b>🔄 Volver a leer</b> o completá los datos a mano.</div>
         <div class="grid">
           <div class="full"><label>Tipo de comprobante</label><input id="c_tipo"></div>
           <div><label>Fecha (DD/MM/AAAA)</label><input id="c_fecha"></div>
@@ -363,8 +366,16 @@
     document.querySelectorAll('[data-logo]').forEach(function(i){i.src=LOGO;});
 
     // ── Versión de la app + Novedades ────────────────────────────────
-    var APP_VERSION = '1.2.1';
+    var APP_VERSION = '1.2.2';
     var CHANGELOG = {
+      '1.2.2': [
+        ['⚡','La app <b>abre más rápido</b> y guarda un poco más ágil.'],
+        ['💬','Si la IA <b>no puede leer</b> el comprobante, ahora te <b>avisa</b> para que lo vuelvas a leer o lo completes a mano.'],
+        ['📄','Si un <b>PDF es demasiado pesado</b>, te avisa antes de subirlo (podés sacarle una foto o captura).'],
+        ['🔢','<b>Importes con punto decimal</b> (ej: 1500.50) se guardan bien, ya no se agrandan.'],
+        ['🗓️','<b>Cambio de año:</b> un ticket de diciembre cargado en enero queda en el año que corresponde.'],
+        ['🔤','Los textos que empiezan con <b>+</b> o <b>=</b> (ej: un teléfono) se guardan tal cual en la planilla.']
+      ],
       '1.2.1': [
         ['🔄','Podés <b>volver a leer</b> un comprobante si la IA leyó mal, y <b>✕ cancelarlo</b> si te equivocaste de archivo.'],
         ['➖','<b>Notas de crédito / devoluciones</b> (Tarjeta): se marcan y <b>restan</b> del total.'],
@@ -477,9 +488,16 @@
     }
 
     // ── Foto → Gemini ────────────────────────────────────────────────
+    var MAX_ARCHIVO_MB = 10;
     function escapeHtml_(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
     function onFile(p,input){
       var f=input.files[0]; if(!f) return;
+      // PDF u otro archivo muy pesado: no se puede leer ni guardar bien. (Las fotos se achican solas.)
+      if(!/^image\//.test(f.type||'') && f.size > MAX_ARCHIVO_MB*1024*1024){
+        input.value='';
+        alert('⚠️ Ese archivo pesa '+(f.size/1048576).toFixed(1)+' MB y el máximo es '+MAX_ARCHIVO_MB+' MB.\n\nSacale una foto o una captura de pantalla al comprobante y subí eso.');
+        return;
+      }
       document.getElementById(p+'_fname').innerHTML='✓ '+escapeHtml_(f.name)+' <span class="cancelx" title="Cancelar este comprobante" onclick="cancelarComprobante(\''+p+'\')">✕</span>';
       var esImagen = /^image\//.test(f.type||'');
       var rd=new FileReader();
@@ -506,14 +524,17 @@
     function enviarAGemini(p, base64, mime){
       st[p].img=base64; st[p].mime=mime;
       document.getElementById(p+'_estado').style.display='block';
-      google.script.run.withSuccessHandler(function(d){ llegoGemini(p,d); }).withFailureHandler(function(){ document.getElementById(p+'_estado').style.display='none'; abrirDatos(p); }).leerComprobante(st[p].img, st[p].mime);
+      google.script.run.withSuccessHandler(function(d){ llegoGemini(p,d); }).withFailureHandler(function(){ llegoGemini(p,null); }).leerComprobante(st[p].img, st[p].mime);
     }
     function esNC(txt){ var t=String(txt||'').toLowerCase().replace(/\./g,'').trim(); return /nota\s*de\s*cr[eé]dito/.test(t)||t==='nc'||t==='ns'||/\bn\/?c\b/.test(t); }
     // Todo gasto se computa al AÑO CORRIENTE: corrige el año que haya leído la IA.
     function fechaAnioActual(s){
       var m=String(s||'').match(/(\d{1,2})[\/\-.](\d{1,2})(?:[\/\-.]\d{2,4})?/);
       if(!m) return s||'';
-      return ('0'+m[1]).slice(-2)+'/'+('0'+m[2]).slice(-2)+'/'+new Date().getFullYear();
+      var hoy=new Date(), anio=hoy.getFullYear();
+      var limite=new Date(anio, hoy.getMonth(), hoy.getDate()+31);
+      if(new Date(anio, parseInt(m[2],10)-1, parseInt(m[1],10)) > limite) anio--; // ticket de diciembre cargado en enero
+      return ('0'+m[1]).slice(-2)+'/'+('0'+m[2]).slice(-2)+'/'+anio;
     }
     function llegoGemini(p,d){
       document.getElementById(p+'_estado').style.display='none';
@@ -524,7 +545,9 @@
         var dv=document.getElementById(p+'_devo'); if(dv) dv.checked = esNC(d.tipoComprobante);
       }
       abrirDatos(p);
+      avisoNoLee(p, !(d && d.ok)); // si la IA no pudo leer, se avisa (los datos quedan para completar a mano)
     }
+    function avisoNoLee(p, mostrar){ var el=document.getElementById(p+'_noLee'); if(el) el.style.display = mostrar ? 'block' : 'none'; }
     function set(id,v){ document.getElementById(id).value = (v===undefined||v===null)?'':v; }
     function fmtAR(v){ if(v===''||v===null||v===undefined) return ''; var n=Number(v); if(isNaN(n)) return String(v); return n.toLocaleString('es-AR',{minimumFractionDigits:0,maximumFractionDigits:2}); }
 
@@ -565,9 +588,10 @@
     // Vuelve a pasar el MISMO comprobante por Gemini (para corregir una lectura mala).
     function volverALeer(p){
       if(!st[p].img){ return; }
+      avisoNoLee(p,false);
       document.getElementById(p+'_datos').style.display='none';
       document.getElementById(p+'_estado').style.display='block';
-      google.script.run.withSuccessHandler(function(d){ llegoGemini(p,d); }).withFailureHandler(function(){ document.getElementById(p+'_estado').style.display='none'; abrirDatos(p); }).leerComprobante(st[p].img, st[p].mime);
+      google.script.run.withSuccessHandler(function(d){ llegoGemini(p,d); }).withFailureHandler(function(){ llegoGemini(p,null); }).leerComprobante(st[p].img, st[p].mime);
     }
     // Cancela el comprobante subido (por si te equivocaste de archivo): borra la lectura y vuelve a subir.
     function cancelarComprobante(p){
@@ -584,6 +608,7 @@
       var b=document.getElementById(p+'_foto_gal'); if(b) b.value='';
       var fn=document.getElementById(p+'_fname'); if(fn) fn.textContent='';
       st[p].img=null; st[p].mime=null;
+      avisoNoLee(p,false);
     }
     function manual(p){ limpiarFoto(p); abrirDatos(p); document.getElementById(p+'_imp').focus(); }
 

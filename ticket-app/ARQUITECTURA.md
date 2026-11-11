@@ -11,6 +11,7 @@ abre la URL hasta que se arma la planilla.
 - **Gemini API** (`UrlFetchApp`) → lee el comprobante (modelo `gemini-2.5-flash`, con `gemini-2.0-flash` de respaldo)
 - **PropertiesService** → guarda la clave de Gemini (`GEMINI_API_KEY`)
 - **LockService** → evita choques si dos personas cargan a la vez
+- **CacheService** → memoria corta (10 min) de CCOs/Cuentas/Titulares/VTOs para abrir más rápido
 
 ---
 
